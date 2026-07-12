@@ -30,7 +30,7 @@ const MODES: Array<{ id: PlayChoice; name: string; desc: string }> = [
   {
     id: 'counting',
     name: 'Card Counting',
-    desc: 'Keep the Hi-Lo count, play the Illustrious 18 deviations, take insurance only when the shoe says so. Separate rank.',
+    desc: '', // built per-profile below: the counting shoe size is configurable
   },
 ];
 
@@ -97,7 +97,11 @@ export function Menu({
           {MODES.map((m) => (
             <button key={m.id} className={`mode-card mode-card--${m.id}`} onClick={() => onPlay(m.id)}>
               <span className="mode-card__name">{m.name}</span>
-              <span className="mode-card__desc">{m.desc}</span>
+              <span className="mode-card__desc">
+                {m.id === 'counting'
+                  ? `A ${profile.countingDecks}-deck game. Keep the Hi-Lo count, spread your bets with the edge, play the Illustrious 18. Every bet is graded. Separate rank.`
+                  : m.desc}
+              </span>
               {m.id === 'endless' && profile.bestEndless > 0 && (
                 <span className="mode-card__best">best streak: {profile.bestEndless}</span>
               )}

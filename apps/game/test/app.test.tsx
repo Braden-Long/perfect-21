@@ -162,16 +162,24 @@ describe('Perfect 21 app', () => {
       timeout: 30000,
     });
 
-    // Fresh shoe: running count zero, full shoe on the rack.
+    // Counting deals its own shoe: a 2-deck pitch game by default, whatever
+    // the basic-strategy table rules say. Fresh shoe: count zero, house edge.
     expect(screen.getByText('RC').parentElement!.textContent).toContain('+0');
     expect(screen.getByText('TC').parentElement!.textContent).toContain('+0.0');
-    expect(screen.getByText('Decks left').parentElement!.textContent).toContain('8.0');
+    expect(screen.getByText('Decks left').parentElement!.textContent).toContain('2.0');
+    expect(screen.getByText('Your edge')).toBeTruthy();
+    // The pitch-game ramp reference is on screen: 1-8 spread, max from TC +5.
+    expect(screen.getByText(/\+5⁺ 8u/)).toBeTruthy();
 
     fireEvent.click(screen.getByText('DEAL'));
+    // The bet itself was graded: the default 5-chip minimum is the correct
+    // 1-unit bet off the top of a fresh shoe.
+    expect(screen.getByText(/Bet check: TC \+0\.0 calls for 1 unit/)).toBeTruthy();
+    expect(screen.getByText(/✓ Correct/)).toBeTruthy();
     // Cards are on the felt; the count HUD reflects them (any value is fine,
-    // but decks remaining must have dropped below a full 8-deck shoe).
+    // but decks remaining must have dropped below a full 2-deck shoe).
     const decks = screen.getByText('Decks left').parentElement!.textContent!;
-    expect(decks).not.toContain('8.0');
+    expect(decks).not.toContain('2.0');
 
     // The count can be hidden to practice keeping it yourself.
     fireEvent.click(screen.getByText(/Hide count/));

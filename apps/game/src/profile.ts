@@ -61,6 +61,17 @@ export interface Profile {
   countingHistory: boolean[];
   countingDecisions: number;
   countingCorrect: number;
+  /**
+   * Counting mode deals its own shoe: counters want few decks and deep
+   * penetration, so this is separate from rules.decks (default 2 — the
+   * classic double-deck pitch game).
+   */
+  countingDecks: number;
+  /** Skill split inside the counting rank: bet-spread and insurance calls. */
+  countingBets: number;
+  countingBetsCorrect: number;
+  countingIns: number;
+  countingInsCorrect: number;
 }
 
 function fresh(): Profile {
@@ -80,6 +91,11 @@ function fresh(): Profile {
     countingHistory: [],
     countingDecisions: 0,
     countingCorrect: 0,
+    countingDecks: 2,
+    countingBets: 0,
+    countingBetsCorrect: 0,
+    countingIns: 0,
+    countingInsCorrect: 0,
   };
 }
 
@@ -163,13 +179,27 @@ export function rankOf(p: Profile): RankResult {
   return computeRank(p.history);
 }
 
-export function recordCountingDecision(p: Profile, correct: boolean): void {
+export type CountingSkill = 'play' | 'bet' | 'insurance';
+
+/** Every counting call — index play, bet size, insurance — feeds one rank window. */
+export function recordCountingDecision(
+  p: Profile,
+  correct: boolean,
+  skill: CountingSkill = 'play'
+): void {
   p.countingHistory.push(correct);
   if (p.countingHistory.length > HISTORY_CAP) {
     p.countingHistory.splice(0, p.countingHistory.length - HISTORY_CAP);
   }
   p.countingDecisions++;
   if (correct) p.countingCorrect++;
+  if (skill === 'bet') {
+    p.countingBets++;
+    if (correct) p.countingBetsCorrect++;
+  } else if (skill === 'insurance') {
+    p.countingIns++;
+    if (correct) p.countingInsCorrect++;
+  }
 }
 
 export function countingRankOf(p: Profile): RankResult {

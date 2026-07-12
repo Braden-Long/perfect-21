@@ -33,6 +33,59 @@ export function trueCount(runningCount: number, cardsRemaining: number): number 
 /** Take insurance at TC >= +3 (the single most valuable index play). */
 export const INSURANCE_INDEX = 3;
 
+/**
+ * Hi-Lo rule of thumb: each true-count point swings the player's expectation
+ * by about half a percent of the initial bet.
+ */
+export const EDGE_PER_TC = 0.005;
+
+/** The counter's live edge: the game's base edge (theoretical RTP − 1) plus the count. */
+export function counterEdge(baseEdge: number, tc: number): number {
+  return baseEdge + EDGE_PER_TC * tc;
+}
+
+export interface BetRamp {
+  /** Recommended bet in units at this true count. */
+  units: number;
+  /** Acceptable band (spreads are "more art than science" — allow ±½ TC of slack). */
+  minUnits: number;
+  maxUnits: number;
+  /** The game's max spread: 1–8 for pitch games (1–2 decks), 1–12 for shoes. */
+  spread: number;
+}
+
+/** Max spread by game: pitch games get less room before the ramp draws heat. */
+export function maxSpread(decks: number): number {
+  return decks <= 2 ? 8 : 12;
+}
+
+/**
+ * Recommended bet in units, ~2 units per true-count point above +1 (each TC
+ * point ≈ +0.5% edge; the edge typically crosses zero near TC +1). This
+ * reproduces the classic taught ramps: shoe 1/2/4/6/8/12 at TC ≤1/2/3/4/5/6+,
+ * pitch capped at 8 units.
+ */
+function rampUnits(tc: number, spread: number): number {
+  if (tc < 1.5) return 1;
+  return Math.min(spread, Math.max(1, Math.round(2 * (tc - 1))));
+}
+
+/**
+ * The bet check for a true count: what a counter should have out, with half a
+ * true count of tolerance on each side. Below +1 the answer is always the
+ * table minimum — betting big into a negative or neutral shoe is the house's
+ * favorite mistake.
+ */
+export function betRamp(tc: number, decks: number): BetRamp {
+  const spread = maxSpread(decks);
+  return {
+    units: rampUnits(tc, spread),
+    minUnits: rampUnits(tc - 0.5, spread),
+    maxUnits: rampUnits(tc + 0.5, spread),
+    spread,
+  };
+}
+
 export interface Deviation {
   /** Chart cell key, e.g. 'h16-10' or 'p10-6'. */
   key: string;

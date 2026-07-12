@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ACTION_LABEL, cardRanks, handValue } from '@perfect21/engine';
+import { ACTION_LABEL, betRamp, cardRanks, handValue } from '@perfect21/engine';
 import type { Action, HandState, Rules } from '@perfect21/engine';
 import type { Game, Mode } from '../useGame';
-import { CHIP_DENOMS, DECISION_SECONDS, TABLE_MAX_BET } from '../useGame';
-import type { Profile } from '../profile';
+import { CHIP_DENOMS, COUNTING_UNIT, DECISION_SECONDS, TABLE_MAX_BET } from '../useGame';
 import { setSoundMuted, soundMuted } from '../sound';
 import { CardView } from './CardView';
 
@@ -106,10 +105,13 @@ function ChipStack({ amount, label }: { amount: number; label?: boolean }) {
 
 /* ---------- felt lettering ---------- */
 
-export function FeltText({ rules }: { rules: Rules }) {
+export function FeltText({ rules, counting = false }: { rules: Rules; counting?: boolean }) {
   const dealerLine = `DEALER ${rules.soft17 === 's17' ? 'STANDS ON ALL 17' : 'HITS SOFT 17'} · ${
     rules.decks
   } ${rules.decks === 1 ? 'DECK' : 'DECKS'}`;
+  // textLength pins each line's exact arc span, so the lettering is dead
+  // centered no matter the string (letter-spaced textPath otherwise overflows
+  // the arc and clips off one end).
   return (
     <svg className="felt-text" viewBox="0 0 1000 430" aria-hidden="true">
       <defs>
@@ -118,20 +120,38 @@ export function FeltText({ rules }: { rules: Rules }) {
         <path id="p21-arc-c" d="M 170 398 Q 500 264 830 398" fill="none" />
       </defs>
       <text className="felt-text__big">
-        <textPath href="#p21-arc-a" startOffset="50%" textAnchor="middle">
+        <textPath
+          href="#p21-arc-a"
+          startOffset="50%"
+          textAnchor="middle"
+          textLength="780"
+          lengthAdjust="spacingAndGlyphs"
+        >
           BLACKJACK PAYS 3 TO 2
         </textPath>
       </text>
       <text className="felt-text__small">
-        <textPath href="#p21-arc-b" startOffset="50%" textAnchor="middle">
+        <textPath
+          href="#p21-arc-b"
+          startOffset="50%"
+          textAnchor="middle"
+          textLength="640"
+          lengthAdjust="spacingAndGlyphs"
+        >
           {dealerLine}
         </textPath>
       </text>
       <path className="felt-text__band" d="M 168 380 Q 500 246 832 380" />
       <path className="felt-text__band" d="M 178 424 Q 500 292 822 424" />
       <text className="felt-text__small felt-text__small--band">
-        <textPath href="#p21-arc-c" startOffset="50%" textAnchor="middle">
-          BASIC STRATEGY IS THE ONLY EDGE
+        <textPath
+          href="#p21-arc-c"
+          startOffset="50%"
+          textAnchor="middle"
+          textLength="560"
+          lengthAdjust="spacingAndGlyphs"
+        >
+          {counting ? 'BET THE COUNT · PLAY THE INDICES' : 'BASIC STRATEGY IS THE ONLY EDGE'}
         </textPath>
       </text>
     </svg>
@@ -140,31 +160,60 @@ export function FeltText({ rules }: { rules: Rules }) {
 
 /* ---------- counting HUD ---------- */
 
+/** The betting ramp for this game, rendered as "≤+1 1u · +2 2u · …". */
+function rampLine(decks: number): string {
+  const parts = ['≤+1 1u'];
+  let last = 1;
+  for (let t = 2; t <= 8; t++) {
+    const r = betRamp(t, decks);
+    if (r.units === last) continue;
+    last = r.units;
+    parts.push(`${last === r.spread ? `+${t}⁺` : `+${t}`} ${last}u`);
+    if (last === r.spread) break;
+  }
+  return parts.join(' · ');
+}
+
 function CountPanel({ game }: { game: Game }) {
   const [show, setShow] = useState(true);
   const sign = (n: number, digits = 0) => `${n >= 0 ? '+' : ''}${n.toFixed(digits)}`;
   return (
     <aside className="count-panel">
       {show && (
-        <div className="count-panel__grid">
-          <div>
-            <span>RC</span>
-            <b>{sign(game.rc)}</b>
+        <>
+          <div className="count-panel__grid">
+            <div>
+              <span>RC</span>
+              <b>{sign(game.rc)}</b>
+            </div>
+            <div>
+              <span>TC</span>
+              <b>{sign(game.tc, 1)}</b>
+            </div>
+            <div>
+              <span>Decks left</span>
+              <b>{game.decksLeft.toFixed(1)}</b>
+            </div>
+            <div>
+              <span>Your edge</span>
+              <b className={game.edge >= 0 ? 'count-panel__edge--plus' : 'count-panel__edge--minus'}>
+                {sign(game.edge * 100, 1)}%
+              </b>
+            </div>
           </div>
-          <div>
-            <span>TC</span>
-            <b>{sign(game.tc, 1)}</b>
+          <div className="count-panel__ramp" title="Bet ramp: ~2 units per true count above +1">
+            1u = {COUNTING_UNIT} · {rampLine(game.rules.decks)}
           </div>
-          <div>
-            <span>Decks left</span>
-            <b>{game.decksLeft.toFixed(1)}</b>
-          </div>
-        </div>
+        </>
       )}
       <button className="count-panel__toggle" onClick={() => setShow(!show)}>
         {show ? 'Hide count — keep it yourself' : 'Show count'}
       </button>
-      {game.freshShoe && <div className="count-panel__shuffle">SHUFFLE — count reset</div>}
+      {game.shufflePending ? (
+        <div className="count-panel__shuffle">CUT CARD OUT — next deal reshuffles</div>
+      ) : (
+        game.freshShoe && <div className="count-panel__shuffle">SHUFFLE — count reset</div>
+      )}
     </aside>
   );
 }
@@ -208,17 +257,7 @@ function TimerBar({ deadline }: { deadline: number }) {
 
 /* ---------- the table ---------- */
 
-export function Table({
-  game,
-  mode,
-  profile,
-  onExit,
-}: {
-  game: Game;
-  mode: Mode;
-  profile: Profile;
-  onExit: () => void;
-}) {
+export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: () => void }) {
   const [showHint, setShowHint] = useState(false);
   const { round, feedback, available, session, tablePhase } = game;
   const betting = tablePhase === 'betting';
@@ -263,7 +302,7 @@ export function Table({
     );
   }
 
-  const r = profile.rules;
+  const r = game.rules;
   const rulesChip = `${r.decks}D · ${r.soft17.toUpperCase()} · ${r.das ? 'DAS' : 'NO DAS'} · ${
     r.surrender === 'none' ? 'NO SURR' : r.surrender === 'late' ? 'LS' : 'ES'
   } · ${r.peek ? 'PEEK' : 'ENHC'}`;
@@ -338,7 +377,7 @@ export function Table({
           </div>
           <div className="shoe" aria-hidden="true" />
           <div className="discard" aria-hidden="true" />
-          <FeltText rules={r} />
+          <FeltText rules={r} counting={mode === 'counting'} />
 
           <section className="dealer-spot">
             {round && round.dealerCards.length > 0 && (

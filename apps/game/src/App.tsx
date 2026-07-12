@@ -45,7 +45,7 @@ function GameScreen({ mode, onExit }: { mode: Mode; onExit: () => void }) {
   // Profile is read fresh per mounted game so rule changes apply.
   const [profile] = useState(loadProfile);
   const game = useGame(profile, mode);
-  return <Table game={game} mode={mode} profile={profile} onExit={onExit} />;
+  return <Table game={game} mode={mode} onExit={onExit} />;
 }
 
 function DrillGameScreen({ onExit }: { onExit: () => void }) {
@@ -76,8 +76,8 @@ export default function App() {
   }, []);
 
   const saveRules = useCallback(
-    (rules: Rules) => {
-      const p = { ...profile, rules };
+    (rules: Rules, countingDecks: number) => {
+      const p = { ...profile, rules, countingDecks };
       saveProfile(p);
       setProfile(p);
     },
@@ -123,7 +123,12 @@ export default function App() {
             onSupport={() => setSupportOpen(true)}
           />
           {rulesOpen && (
-            <RulesDialog rules={profile.rules} onSave={saveRules} onClose={() => setRulesOpen(false)} />
+            <RulesDialog
+              rules={profile.rules}
+              countingDecks={profile.countingDecks}
+              onSave={saveRules}
+              onClose={() => setRulesOpen(false)}
+            />
           )}
           {supportOpen && <SupportDialog onClose={() => setSupportOpen(false)} />}
         </>

@@ -3,9 +3,12 @@ import {
   DEFAULT_RULES,
   INSURANCE_INDEX,
   Round,
+  betRamp,
   countCards,
+  counterEdge,
   hiLoValue,
   indexPlay,
+  maxSpread,
   trueCount,
 } from '../src';
 import type { Card, Rank, Rules, Suit } from '../src';
@@ -30,6 +33,47 @@ describe('Hi-Lo tags and true count', () => {
 
   it('insurance index is +3', () => {
     expect(INSURANCE_INDEX).toBe(3);
+  });
+});
+
+describe('bet ramp and counter edge', () => {
+  it('adds half a percent of edge per true count', () => {
+    expect(counterEdge(-0.005, 0)).toBeCloseTo(-0.005);
+    expect(counterEdge(-0.005, 3)).toBeCloseTo(0.01);
+    expect(counterEdge(-0.005, -2)).toBeCloseTo(-0.015);
+  });
+
+  it('bets the table minimum at and below TC +1', () => {
+    for (const tc of [-4, -1, 0, 1, 1.4]) {
+      expect(betRamp(tc, 2).units).toBe(1);
+      expect(betRamp(tc, 6).units).toBe(1);
+    }
+    // Negative and neutral shoes tolerate nothing above the minimum.
+    expect(betRamp(0, 6).maxUnits).toBe(1);
+    expect(betRamp(-3, 2).maxUnits).toBe(1);
+  });
+
+  it('ramps ~2 units per true count above +1, reproducing the classic shoe ramp', () => {
+    expect([2, 3, 4, 5, 6, 7].map((tc) => betRamp(tc, 6).units)).toEqual([2, 4, 6, 8, 10, 12]);
+  });
+
+  it('caps pitch games at a 1-8 spread and shoes at 1-12', () => {
+    expect(betRamp(9, 1).units).toBe(8);
+    expect(betRamp(9, 2).units).toBe(8);
+    expect(betRamp(9, 6).units).toBe(12);
+    expect(betRamp(9, 8).units).toBe(12);
+    expect(maxSpread(2)).toBe(8);
+    expect(maxSpread(6)).toBe(12);
+  });
+
+  it('allows half a true count of slack around the recommendation', () => {
+    const atThree = betRamp(3, 6);
+    expect(atThree.units).toBe(4);
+    expect(atThree.minUnits).toBe(3);
+    expect(atThree.maxUnits).toBe(5);
+    // Flat-betting the minimum stops being acceptable from TC +2.5.
+    expect(betRamp(2, 6).minUnits).toBe(1);
+    expect(betRamp(2.5, 6).minUnits).toBe(2);
   });
 });
 

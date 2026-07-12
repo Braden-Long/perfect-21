@@ -57,22 +57,36 @@ were actually worth.
 | **Competitive** | 10 seconds per decision; timeouts grade as errors; rank on the line |
 | **Endless** | A 100-chip run: one wrong decision **or busting out** ends it — longest streak wins |
 | **Drill** | Flashcard reps dealt from *your own mistake history* — no chips, pure decisions |
-| **Card Counting** | Live Hi-Lo count HUD, Illustrious 18 / Fab 4 index plays, insurance at TC ≥ +3 — its own rank |
+| **Card Counting** | Its own few-deck shoe (default: double deck). Hi-Lo count HUD with your live edge, graded bet spread, Illustrious 18 / Fab 4 index plays, insurance at TC ≥ +3 — its own rank |
 
 Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`, `/#drill`, `/#counting`).
 
 ### Card counting mode
 
-The table shows the Hi-Lo running count, exact true count (RC ÷ decks remaining) and decks
-left — hideable, so you can keep the count yourself and check. The count is computed from the
-actual dealt shoe (hole card counted only once revealed; reshuffle at the cut card resets it),
-so impossible counts can't occur. Decisions are graded against the **index play**, not raw
-basic strategy: Schlesinger's Illustrious 18 and Fab 4 (surrender games), with insurance
-offered on every ace and graded against the +3 index. Getting the basic-strategy answer while
-missing the index counts as a miss — the feedback explains both layers. Indices are the
-standard multi-deck S17 baseline (the 11 vs A index is skipped under H17, where basic already
-doubles); play a 4+ deck shoe for the numbers to be exact. Counting mode has a **separate
-rank and leaderboard**, and either rank can be reset independently from the stats screen.
+Counting mode deals **its own shoe** — a double-deck pitch game by default (configurable in
+Table rules: 1/2/6/8 decks), because counters hunt few decks and deep penetration: in a deeply
+dealt double-deck game you hold the edge on roughly a quarter of your hands, while an 8-deck
+shoe's true count barely moves. The cut card sits at 75% penetration, and the HUD warns when
+it's out so you never bet into a shuffle blind.
+
+The HUD shows the Hi-Lo running count, exact true count (RC ÷ decks remaining), decks left and
+**your live edge** (the engine's true base edge for the rules in play + 0.5% per true count) —
+all hideable, so you can keep the count yourself and check. The count is computed from the
+actual dealt shoe (hole card counted only once revealed), so impossible counts can't occur.
+
+**Every bet is graded.** Betting the count is where counting turns into money: 1 unit is the
+5-chip table minimum, and the ramp is ~2 units per true count above +1 — which reproduces the
+classic taught spreads (1–8 in pitch games, 1–12 in shoes, max around TC +5/+6) — with half a
+true count of tolerance, since spreads are famously more art than science. Flat-betting a hot
+shoe, or pushing chips into a negative one, is a graded miss like any other.
+
+Play decisions are graded against the **index play**, not raw basic strategy: Schlesinger's
+Illustrious 18 and Fab 4 (surrender games), with insurance offered on every ace and graded
+against the +3 index. Getting the basic-strategy answer while missing the index counts as a
+miss — the feedback explains both layers. Indices are the standard multi-deck S17 baseline
+(the 11 vs A index is skipped under H17, where basic already doubles). Counting mode has a
+**separate rank and leaderboard** fed by all three skills — index plays, bet spread, insurance
+— broken out individually on the stats screen, and either rank can be reset independently.
 
 ### Mistake memory
 
@@ -179,7 +193,7 @@ subtracted from theory.
 
 - **Server-side decision verification**: replay submitted hands through the engine for
   anticheat-grade leaderboards.
-- Bet-spread grading in counting mode (Kelly-style spread vs. the true count).
+- Wonging (sitting out negative shoes) and back-counting drills in counting mode.
 - Multi-seat play and richer table presentation.
 - **Steam packaging** (optional, shell already works): app ID, steamworks.js achievements,
   Windows build via electron-builder.

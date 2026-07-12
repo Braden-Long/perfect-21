@@ -33,6 +33,12 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   remaining (exact, no flooring), trigger at TC ≥ index, insurance index +3. 11vA is s17Only.
   Counting-mode grading targets the index play; misses there must never feed the basic drill,
   and EV bookkeeping stays basic-only (deviations aren't in the CD model).
+- Counting mode deals its own shoe (`profile.countingDecks`, default 2 — NOT `rules.decks`)
+  and grades every initial bet against `betRamp`: 1 unit = 5 chips, ~2 units per TC above +1,
+  spread capped at 8 (1–2 decks) / 12 (3+ decks), ±½ TC tolerance. Grade bets at the TC the
+  bettor saw: with the cut card out (`shufflePending`) the HUD and the grade both use the
+  fresh-shoe count of 0. Live edge = theoretical RTP − 1 + 0.5% per TC. The three counting
+  skills (index plays / bets / insurance) share one rank window but keep split counters.
 - EVs/RTP are quoted per initial bet. In-play EVs are conditioned on no dealer blackjack in
   peek games and unconditional in no-peek games.
 - Strategy build is ~1s per rule set (cached in-process by `getStrategy`); never call it in a

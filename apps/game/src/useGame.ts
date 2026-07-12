@@ -5,14 +5,16 @@ import {
   Round,
   SessionStats,
   Shoe,
+  betRamp,
   cardRanks,
   countCards,
+  counterEdge,
   explain,
   getStrategy,
   indexPlay,
   trueCount,
 } from '@perfect21/engine';
-import type { Action, CellEVs, Recommendation, Strategy } from '@perfect21/engine';
+import type { Action, CellEVs, Recommendation, Rules, Strategy } from '@perfect21/engine';
 import type { Profile } from './profile';
 import {
   STARTING_BANKROLL,
@@ -35,6 +37,8 @@ export const ENDLESS_BANKROLL = 100;
 export const CHIP_DENOMS = [1, 5, 25, 100, 500];
 export const TABLE_MAX_BET = 500;
 const DEFAULT_BET = 5;
+/** Counting mode's betting unit: the 5-chip table minimum. Spread is graded in these. */
+export const COUNTING_UNIT = 5;
 
 export interface Feedback {
   id: number;
@@ -88,6 +92,8 @@ export interface Game {
   canRebuy: boolean;
   rebuy: () => void;
   // --- card counting mode ---
+  /** The rules actually on the table (counting mode deals its own shoe). */
+  rules: Rules;
   /** Hi-Lo running count of every card visible so far this shoe. */
   rc: number;
   /** True count: rc / decks remaining. */
@@ -95,6 +101,10 @@ export interface Game {
   decksLeft: number;
   /** True right after a reshuffle, until the next deal. */
   freshShoe: boolean;
+  /** The cut card is out: the next deal reshuffles, so the count resets to 0. */
+  shufflePending: boolean;
+  /** The counter's live edge for the rules in play: base edge + 0.5% per TC. */
+  edge: number;
   /** Answer the insurance offer (counting mode, ace up). */
   insure: (take: boolean) => void;
 }
@@ -128,6 +138,14 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const baseRCRef = useRef(0);
   const [freshShoe, setFreshShoe] = useState(false);
   const counting = mode === 'counting';
+  // Counting deals its own shoe: few decks is where counting actually pays.
+  const tableRules = useMemo<Rules>(
+    () =>
+      counting
+        ? { ...profile.rules, decks: profile.countingDecks as Rules['decks'] }
+        : profile.rules,
+    [counting, profile.rules, profile.countingDecks]
+  );
 
   /** Count contribution of the cards currently face-up on the table. */
   const visibleCount = (r: Round | null): number => {
@@ -197,6 +215,42 @@ export function useGame(profile: Profile, mode: Mode): Game {
     if (stake < 1 || stake > bankrollRef.current) return;
     betRef.current = stake;
     play('deal');
+
+    // Counting mode: the bet IS a decision. Grade the stake against the ramp
+    // at the true count the player saw while betting (0 when the cut card is
+    // out — the HUD warns that the next deal reshuffles).
+    let betFeedback: Feedback | null = null;
+    if (counting) {
+      const tcAtBet = shoe.needsShuffle ? 0 : trueCount(baseRCRef.current, shoe.remaining);
+      const ramp = betRamp(tcAtBet, tableRules.decks);
+      const minChips = ramp.minUnits * COUNTING_UNIT;
+      const maxChips = ramp.maxUnits * COUNTING_UNIT;
+      // Short stacks can't be asked to bet chips they don't have.
+      const allIn = bankrollRef.current < minChips && stake === bankrollRef.current;
+      const correct = (stake >= minChips && stake <= maxChips) || allIn;
+      const edgeNow = counterEdge(theoreticalRTP - 1, tcAtBet);
+      const tcStr = `${tcAtBet >= 0 ? '+' : ''}${tcAtBet.toFixed(1)}`;
+      const edgeStr = `${edgeNow >= 0 ? '+' : ''}${(edgeNow * 100).toFixed(1)}%`;
+      const units = (n: number) => `${n} unit${n === 1 ? '' : 's'} (${n * COUNTING_UNIT})`;
+      recordCountingDecision(profile, correct, 'bet');
+      setTape((prev) => [...prev, correct]);
+      betFeedback = {
+        id: ++feedbackIdRef.current,
+        correct,
+        timedOut: false,
+        chosen: 'stand',
+        recommended: 'stand',
+        headline: `Bet check: TC ${tcStr} calls for ${units(ramp.units)} — you bet ${stake}`,
+        explanation:
+          ramp.units === 1
+            ? `Your edge at TC ${tcStr} is ${edgeStr} — the shoe belongs to the house, so feed it the table minimum and wait. A counter's money is made by betting small without the edge and big with it.`
+            : `At TC ${tcStr} your edge is about ${edgeStr}. The ramp is ~2 units per true count above +1, capped at a 1–${ramp.spread} spread in a ${tableRules.decks}-deck game — anything from ${ramp.minUnits} to ${ramp.maxUnits} units is sound here.`,
+        evs: {},
+      };
+      play(correct ? 'correct' : 'incorrect', 0.3);
+      saveProfile(profile);
+    }
+
     if (shoe.needsShuffle) {
       // Round.deal() is about to reshuffle: the count starts over.
       baseRCRef.current = 0;
@@ -212,23 +266,23 @@ export function useGame(profile: Profile, mode: Mode): Game {
     });
     roundRef.current = round;
     recordedRef.current = false;
-    setFeedback(null);
+    setFeedback(betFeedback);
     setTablePhase('playing');
     round.deal();
     settleIfDone();
     bump();
-  }, [bump, chipStack, counting, endlessOver, settleIfDone, setRoll, tablePhase]);
+  }, [bump, chipStack, counting, endlessOver, profile, settleIfDone, setRoll, tablePhase, tableRules, theoreticalRTP]);
 
   // Build (or fetch cached) strategy tables off the first paint.
   useEffect(() => {
     let cancelled = false;
     setStatus('loading');
     const timer = setTimeout(() => {
-      const strategy = getStrategy(profile.rules);
+      const strategy = getStrategy(tableRules);
       const rtp = strategy.theoreticalRTP();
       if (cancelled) return;
       strategyRef.current = strategy;
-      shoeRef.current = new Shoe(profile.rules.decks);
+      shoeRef.current = new Shoe(tableRules.decks);
       setTheoreticalRTP(rtp);
       setStatus('ready');
       const opening = Math.min(DEFAULT_BET, bankrollRef.current);
@@ -284,7 +338,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
       if (counting) {
         const shoe = shoeRef.current!;
         const tcNow = trueCount(baseRCRef.current + visibleCount(r), shoe.remaining);
-        const playNow = indexPlay(rec.cell.key, tcNow, rec.action, availableNow(), profile.rules);
+        const playNow = indexPlay(rec.cell.key, tcNow, rec.action, availableNow(), tableRules);
         expected = playNow.action;
         const tcStr = `${tcNow >= 0 ? '+' : ''}${tcNow.toFixed(1)}`;
         if (playNow.deviation && expected !== rec.action) {
@@ -364,7 +418,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
       saveProfile(profile);
       bump();
     },
-    [availableNow, bump, endlessOver, mode, profile, recommend, settleIfDone, setRoll]
+    [availableNow, bump, endlessOver, mode, profile, recommend, settleIfDone, setRoll, tableRules]
   );
 
   const act = useCallback((a: Action) => applyAction(a, false), [applyAction]);
@@ -402,10 +456,18 @@ export function useGame(profile: Profile, mode: Mode): Game {
 
   const canRebuy = mode !== 'endless' && tablePhase === 'betting' && bankroll < 1;
 
-  const cardsLeft = shoeRef.current?.remaining ?? profile.rules.decks * 52;
-  const rcNow = counting
-    ? baseRCRef.current + (round && !recordedRef.current ? visibleCount(round) : 0)
-    : 0;
+  // Once the cut card is out, the next deal reshuffles — during the betting
+  // phase the HUD (and the bet check) must reflect the fresh shoe, not the
+  // stale count of the shoe being retired.
+  const shufflePending =
+    counting && tablePhase === 'betting' && (shoeRef.current?.needsShuffle ?? false);
+  const cardsLeft = shufflePending
+    ? tableRules.decks * 52
+    : shoeRef.current?.remaining ?? tableRules.decks * 52;
+  const rcNow =
+    counting && !shufflePending
+      ? baseRCRef.current + (round && !recordedRef.current ? visibleCount(round) : 0)
+      : 0;
 
   const rebuy = useCallback(() => {
     if (mode === 'endless' || bankrollRef.current >= 1) return;
@@ -432,7 +494,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
         chosen: take ? 'stand' : 'hit',
         recommended: shouldTake ? 'stand' : 'hit',
       });
-      recordCountingDecision(profile, correct);
+      recordCountingDecision(profile, correct, 'insurance');
       setTape((prev) => [...prev, correct]);
       setFeedback({
         id: ++feedbackIdRef.current,
@@ -516,10 +578,13 @@ export function useGame(profile: Profile, mode: Mode): Game {
       status === 'ready' && tablePhase === 'betting' && !endlessOver && bet >= 1 && bet <= bankroll,
     canRebuy,
     rebuy,
+    rules: tableRules,
     rc: rcNow,
     tc: counting ? trueCount(rcNow, cardsLeft) : 0,
     decksLeft: cardsLeft / 52,
     freshShoe,
+    shufflePending,
+    edge: counting ? counterEdge(theoreticalRTP - 1, trueCount(rcNow, cardsLeft)) : 0,
     insure,
   };
 }

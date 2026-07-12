@@ -4,14 +4,17 @@ import type { DoubleRule, Rules, Soft17Rule, SurrenderRule } from '@perfect21/en
 
 export function RulesDialog({
   rules,
+  countingDecks,
   onSave,
   onClose,
 }: {
   rules: Rules;
-  onSave: (r: Rules) => void;
+  countingDecks: number;
+  onSave: (r: Rules, countingDecks: number) => void;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<Rules>({ ...rules });
+  const [countDecks, setCountDecks] = useState(countingDecks);
   const set = <K extends keyof Rules>(k: K, v: Rules[K]) => setDraft({ ...draft, [k]: v });
 
   return (
@@ -79,6 +82,21 @@ export function RulesDialog({
           </select>
         </label>
 
+        <label className="field">
+          <span>Card counting shoe</span>
+          <select value={countDecks} onChange={(e) => setCountDecks(Number(e.target.value))}>
+            <option value={1}>1 deck — single deck</option>
+            <option value={2}>2 decks — the classic pitch game</option>
+            <option value={6}>6 decks — typical casino shoe</option>
+            <option value={8}>8 decks — not worth counting</option>
+          </select>
+        </label>
+        <p className="rules-note">
+          Counting mode deals its own shoe. Counters hunt for few decks: in a deeply dealt
+          double-deck game you hold the edge on roughly a quarter of your hands; in an 8-deck
+          shoe the true count barely moves and the good spots almost never come.
+        </p>
+
         <div className="overlay__buttons">
           <button className="btn btn--ghost" onClick={onClose}>
             Cancel
@@ -86,7 +104,7 @@ export function RulesDialog({
           <button
             className="btn btn--deal"
             onClick={() => {
-              onSave(draft);
+              onSave(draft, countDecks);
               onClose();
             }}
           >

@@ -86,6 +86,12 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
   const accuracy =
     profile.lifetimeDecisions > 0 ? profile.lifetimeCorrect / profile.lifetimeDecisions : null;
 
+  // Counting is three skills in one rank — show where the leaks are.
+  const countingPlays = profile.countingDecisions - profile.countingBets - profile.countingIns;
+  const countingPlaysCorrect =
+    profile.countingCorrect - profile.countingBetsCorrect - profile.countingInsCorrect;
+  const pct = (num: number, den: number) => (den > 0 ? `${((num / den) * 100).toFixed(1)}%` : '—');
+
   return (
     <div className="room room--menu">
       <div className="menu menu--wide">
@@ -166,6 +172,25 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
             label="Decision accuracy"
             value={accuracy !== null ? `${(accuracy * 100).toFixed(1)}%` : '—'}
           />
+          {profile.countingDecisions > 0 && (
+            <>
+              <Stat
+                label="Index plays"
+                value={pct(countingPlaysCorrect, countingPlays)}
+                hint={`counting · ${countingPlays} I18 / Fab 4 calls`}
+              />
+              <Stat
+                label="Bet spread"
+                value={pct(profile.countingBetsCorrect, profile.countingBets)}
+                hint={`counting · ${profile.countingBets} bets vs the ramp`}
+              />
+              <Stat
+                label="Insurance"
+                value={pct(profile.countingInsCorrect, profile.countingIns)}
+                hint={`counting · ${profile.countingIns} calls at the +3 index`}
+              />
+            </>
+          )}
         </div>
 
         <div className="tier-ladder">
