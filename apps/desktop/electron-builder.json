@@ -1,0 +1,18 @@
+{
+  "appId": "com.perfect21.trainer",
+  "productName": "Perfect 21",
+  "directories": {
+    "output": "release"
+  },
+  "files": ["main.cjs", { "from": "../game/dist", "to": "game/dist" }],
+  "extraMetadata": {
+    "main": "main.cjs"
+  },
+  "mac": {
+    "category": "public.app-category.education",
+    "target": ["dmg", "zip"]
+  },
+  "win": {
+    "target": ["nsis"]
+  }
+}

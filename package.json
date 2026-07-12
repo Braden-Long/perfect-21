@@ -1,0 +1,22 @@
+{
+  "name": "perfect-21",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Perfect 21 — a first-person blackjack basic-strategy trainer. Math, not gambling.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @perfect21/game",
+    "build": "npm run build -w @perfect21/game",
+    "test": "vitest run",
+    "desktop": "npm run start -w @perfect21/desktop"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
