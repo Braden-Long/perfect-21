@@ -20,6 +20,18 @@ type Screen =
   | { name: 'board' }
   | { name: 'admin' };
 
+const MODE_HASHES: Record<string, Mode> = {
+  '#practice': 'practice',
+  '#competitive': 'competitive',
+  '#endless': 'endless',
+};
+
+function screenForHash(hash: string): Screen | null {
+  if (hash === '#admin') return { name: 'admin' };
+  const mode = MODE_HASHES[hash];
+  return mode ? { name: 'game', mode } : null;
+}
+
 function GameScreen({ mode, onExit }: { mode: Mode; onExit: () => void }) {
   // Profile is read fresh per mounted game so rule changes apply.
   const [profile] = useState(loadProfile);
@@ -28,24 +40,23 @@ function GameScreen({ mode, onExit }: { mode: Mode; onExit: () => void }) {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>(() =>
-    location.hash === '#admin' ? { name: 'admin' } : { name: 'menu' }
-  );
+  const [screen, setScreen] = useState<Screen>(() => screenForHash(location.hash) ?? { name: 'menu' });
   const [profile, setProfile] = useState(loadProfile);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
 
-  // The admin panel is reachable by URL (…/#admin) so it can be bookmarked.
+  // The admin panel (…/#admin) and each mode (…/#practice etc.) are bookmarkable.
   useEffect(() => {
     const onHash = () => {
-      if (location.hash === '#admin') setScreen({ name: 'admin' });
+      const next = screenForHash(location.hash);
+      if (next) setScreen(next);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
   const backToMenu = useCallback(() => {
-    if (location.hash === '#admin') history.replaceState(null, '', ' ');
+    if (screenForHash(location.hash)) history.replaceState(null, '', ' ');
     setProfile(loadProfile());
     setScreen({ name: 'menu' });
   }, []);

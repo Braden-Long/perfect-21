@@ -4,6 +4,9 @@ import type { RankResult, Rules } from '@perfect21/engine';
 const KEY = 'perfect21.profile.v1';
 const HISTORY_CAP = 1000;
 
+/** Play chips only — worthless by design. See docs/REQUIREMENTS.md: no real money, ever. */
+export const STARTING_BANKROLL = 1000;
+
 export interface Profile {
   rules: Rules;
   /** Leaderboard identity, once the player claims a name. */
@@ -16,6 +19,10 @@ export interface Profile {
   totalNet: number;
   totalEVLoss: number;
   bestEndless: number;
+  /** Persistent play-chip balance (practice/competitive; endless runs use their own stack). */
+  bankroll: number;
+  /** Times the player went broke and refilled — a stat, not a shame. */
+  rebuys: number;
 }
 
 function fresh(): Profile {
@@ -28,6 +35,8 @@ function fresh(): Profile {
     totalNet: 0,
     totalEVLoss: 0,
     bestEndless: 0,
+    bankroll: STARTING_BANKROLL,
+    rebuys: 0,
   };
 }
 

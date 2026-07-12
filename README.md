@@ -1,8 +1,10 @@
 # Perfect 21
 
 A first-person blackjack **basic-strategy trainer**, delivered as a website. This is math, not
-gambling: no wagering, no bankroll mechanics — you're scored purely on whether each decision
-matches optimal basic strategy for the table rules in play.
+gambling: you bet **play chips** that are worthless by design, and you're scored on whether each
+decision matches optimal basic strategy for the table rules in play. The bankroll exists to make
+the math visceral — you watch variance move it while the stats screen shows what your decisions
+were actually worth.
 
 ![modes](https://img.shields.io/badge/modes-practice%20%C2%B7%20competitive%20%C2%B7%20endless-d8b36c)
 
@@ -14,9 +16,14 @@ matches optimal basic strategy for the table rules in play.
 
 ## What it does
 
-- **First-person table** in the style of Evolution's First Person Blackjack: dealer up top,
-  your fanned hand at the bottom, hit/stand/double/split/surrender at your fingertips
-  (keyboard: `H` `S` `D` `P` `R`, space to deal).
+- **Full-viewport first-person table** in the style of Evolution's First Person Blackjack:
+  the felt fills the screen, chip rack and shoe up top, rule lettering printed on the felt,
+  dealer cards top-center and your fanned hand low-center with total badges, a betting spot
+  with a chip selector (undo / ×2 / DEAL), and colored decision squares. Keyboard: `H` `S`
+  `D` `P` `R` for actions, `1`–`5` to stage chips, space to deal.
+- **A play-chip bankroll** (1,000 chips, persistent in practice/competitive). Every bet,
+  double and split moves real chips; going broke offers a rebuy — and counts it, because even
+  perfect play faces a house edge. No real money exists anywhere in the system.
 - **Every decision is graded** against basic strategy the instant you make it, with a popup
   explaining *why* the correct play is correct — plus the live expected value of every action
   you could have taken, computed for the exact cards on the table.
@@ -43,7 +50,9 @@ matches optimal basic strategy for the table rules in play.
 | --- | --- |
 | **Practice** | No pressure, optional hints, feedback on every decision |
 | **Competitive** | 10 seconds per decision; timeouts grade as errors; rank on the line |
-| **Endless** | One wrong decision ends the run — longest streak wins |
+| **Endless** | A 100-chip run: one wrong decision **or busting out** ends it — longest streak wins |
+
+Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`).
 
 ## Running it
 
@@ -134,6 +143,7 @@ subtracted from theory.
 
 ## License / disclaimer
 
-Educational tool. No real-money play, and nothing here constitutes gambling advice. Strategy
+Educational tool. No real-money play — chips are play tokens with no value, cannot be bought,
+sold, or cashed out — and nothing here constitutes gambling advice. Strategy
 tables are mathematically derived; verify any real-world use against the
 [BlackjackInfo engine](https://www.blackjackinfo.com/blackjack-basic-strategy-engine/) yourself.

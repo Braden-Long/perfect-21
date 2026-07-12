@@ -89,6 +89,16 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
           <Stat
             label="Net units"
             value={played ? `${profile.totalNet >= 0 ? '+' : ''}${profile.totalNet.toFixed(1)}` : '—'}
+            hint="per initial bet, all modes"
+          />
+          <Stat
+            label="Bankroll"
+            value={profile.bankroll.toLocaleString('en-US', { maximumFractionDigits: 1 })}
+            hint={
+              profile.rebuys > 0
+                ? `play chips · ${profile.rebuys} rebuy${profile.rebuys === 1 ? '' : 's'}`
+                : 'play chips — worthless by design'
+            }
           />
           <Stat label="Best endless streak" value={String(profile.bestEndless)} />
           <Stat

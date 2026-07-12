@@ -27,33 +27,63 @@ describe('Perfect 21 app', () => {
     expect(screen.getByDisplayValue('Hits (H17)')).toBeTruthy();
   });
 
-  it('plays a practice hand end to end with graded feedback', async () => {
+  it('plays a practice hand end to end: bet, deal, graded decisions, payout', async () => {
     render(<App />);
     fireEvent.click(screen.getByText('Practice'));
 
-    // Strategy tables build, then the first round is dealt.
-    await waitFor(() => expect(screen.getByText('DEALER')).toBeTruthy(), { timeout: 30000 });
+    // Strategy tables build, then the betting console appears with a staged bet.
+    await waitFor(() => expect(screen.getByText('PLACE YOUR BET')).toBeTruthy(), {
+      timeout: 30000,
+    });
+    expect(screen.getByText('Balance').parentElement!.textContent).toContain('1,000');
 
-    // Play decisions until the round settles (deal button appears).
+    // The default 5-chip bet is staged, so DEAL is live. Chips hit the felt.
+    const deal = screen.getByText('DEAL') as HTMLButtonElement;
+    expect(deal.disabled).toBe(false);
+    fireEvent.click(deal);
+    expect(screen.getByText('Total play').parentElement!.textContent).toContain('5');
+
+    // Play decisions until the round settles (betting console returns).
     for (let i = 0; i < 12; i++) {
       const stand = screen.queryByText('Stand');
       const hit = screen.queryByText('Hit');
       if (!stand && !hit) break;
-      fireEvent.click(stand ?? hit!);
+      fireEvent.click((stand ?? hit)!.closest('button')!);
       // Every decision must produce graded feedback.
       expect(screen.getByText(/Basic strategy:/)).toBeTruthy();
     }
-    await waitFor(() => expect(screen.getByText('DEAL')).toBeTruthy(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByText(/REBET|PLACE YOUR BET/)).toBeTruthy(), {
+      timeout: 5000,
+    });
 
-    // Session stats recorded the round.
+    // Session stats recorded the round and a result banner reported the payout.
     expect(screen.getByText('Hands').parentElement!.textContent).toContain('1');
+    expect(screen.queryAllByText(/YOU WIN|PUSH|−/).length).toBeGreaterThan(0);
 
-    // Deal another round to prove the loop continues.
+    // Rebet is staged automatically, so the loop continues with one click.
     fireEvent.click(screen.getByText('DEAL'));
     await waitFor(
-      () => expect(screen.queryByText('Stand') ?? screen.queryByText('DEAL')).toBeTruthy(),
+      () =>
+        expect(
+          screen.queryByText('Stand') ?? screen.queryByText(/REBET|PLACE YOUR BET/)
+        ).toBeTruthy(),
       { timeout: 5000 }
     );
+  });
+
+  it('stages chips with undo and ×2 before dealing', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('Practice'));
+    await waitFor(() => expect(screen.getByText('PLACE YOUR BET')).toBeTruthy(), {
+      timeout: 30000,
+    });
+
+    // Default stake is 5; add a 25 chip, double it, then undo once: (5+25)*2 - 30 = 30.
+    fireEvent.click(screen.getByLabelText('add 25 chip'));
+    fireEvent.click(screen.getByTitle('Double bet'));
+    fireEvent.click(screen.getByTitle('Undo chip'));
+    // The staged stack shows the total on the bet spot.
+    expect(screen.getByText('30')).toBeTruthy();
   });
 
   it('shows a friendly offline notice on the leaderboard without a server', async () => {

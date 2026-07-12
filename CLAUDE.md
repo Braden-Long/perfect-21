@@ -31,4 +31,9 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   peek games and unconditional in no-peek games.
 - Strategy build is ~1s per rule set (cached in-process by `getStrategy`); never call it in a
   render path without the deferred/loading pattern (see `useStrategy`).
-- No real-money mechanics anywhere — this is an education tool by design (see docs/REQUIREMENTS.md).
+- The chip bankroll is a **client-side layer** (useGame.ts): the engine stays unit-based
+  (initial bet = 1) so EV/RTP math is untouched; chips = units × the round's bet, and server
+  sync still sends unit-based `net`. Endless runs use an ephemeral 100-chip stack; the
+  persistent roll lives in `profile.bankroll`.
+- No real-money mechanics anywhere — chips are valueless play tokens, never purchasable.
+  This is an education tool by design (see docs/REQUIREMENTS.md).

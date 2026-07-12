@@ -17,7 +17,7 @@ const MODES: Array<{ id: Mode; name: string; desc: string }> = [
   {
     id: 'endless',
     name: 'Endless',
-    desc: 'One mistake ends the run. How long can you play perfectly?',
+    desc: 'A 100-chip stack. One strategy mistake — or busting out — ends the run.',
   },
 ];
 
@@ -70,7 +70,9 @@ export function Menu({
           )}
           {lifetimeAcc !== null && (
             <span className="rank-lifetime">
-              lifetime {(lifetimeAcc * 100).toFixed(1)}% · {profile.lifetimeDecisions} decisions
+              lifetime {(lifetimeAcc * 100).toFixed(1)}% · {profile.lifetimeDecisions} decisions ·
+              bankroll {profile.bankroll.toLocaleString('en-US', { maximumFractionDigits: 1 })}{' '}
+              chips
             </span>
           )}
         </div>
@@ -105,7 +107,7 @@ export function Menu({
           </button>
         </div>
         {profile.player && <p className="menu__signed">playing as {profile.player.name}</p>}
-        <p className="menu__footer">free forever · no ads · no wagering · tips only</p>
+        <p className="menu__footer">free forever · no ads · play chips only · tips welcome</p>
       </div>
     </div>
   );
