@@ -21,10 +21,10 @@ export interface HandState {
   net?: number;
 }
 
-export type Phase = 'idle' | 'player' | 'dealer' | 'settled';
+export type Phase = 'idle' | 'insurance' | 'player' | 'dealer' | 'settled';
 
 export interface RoundSummary {
-  /** Net units won/lost across all hands this round. */
+  /** Net units won/lost across all hands this round (insurance included). */
   net: number;
   /** Units initially wagered (always 1 — doubles/splits are extra risk, not extra rounds). */
   initialBet: 1;
@@ -44,6 +44,8 @@ const MAX_HANDS = 4;
 export class Round {
   readonly rules: Rules;
   private source: CardSource;
+  /** Offer insurance on an ace upcard (peek games only). Off for pure basic-strategy modes. */
+  readonly offerInsurance: boolean;
 
   phase: Phase = 'idle';
   hands: HandState[] = [];
@@ -52,10 +54,14 @@ export class Round {
   holeDealt = false;
   holeRevealed = false;
   dealerBlackjack = false;
+  insured = false;
+  /** Units won/lost on the insurance side bet: +1 (dealer BJ), −0.5, or 0. */
+  insuranceNet = 0;
 
-  constructor(rules: Rules, source: CardSource) {
+  constructor(rules: Rules, source: CardSource, opts?: { offerInsurance?: boolean }) {
     this.rules = rules;
     this.source = source;
+    this.offerInsurance = opts?.offerInsurance ?? false;
   }
 
   private newHand(cards: Card[], fromSplit = false, splitAces = false): HandState {
@@ -85,6 +91,11 @@ export class Round {
       // Hole card goes down immediately; dealer checks under A/10.
       this.dealerCards.push(this.source.draw());
       this.holeDealt = true;
+      if (upRank === 1 && this.offerInsurance) {
+        // Insurance is decided before the dealer peeks.
+        this.phase = 'insurance';
+        return;
+      }
       if (upRank === 1 || upRank === 10) {
         if (handValue(cardRanks(this.dealerCards)).blackjack) {
           this.dealerBlackjack = true;
@@ -93,6 +104,23 @@ export class Round {
           return;
         }
       }
+    }
+    if (handValue(cardRanks(this.hands[0].cards)).blackjack) {
+      this.hands[0].done = true;
+      this.finishPlayerTurn();
+    }
+  }
+
+  /** Resolve the insurance decision, then let the dealer peek and play on. */
+  takeInsurance(take: boolean): void {
+    if (this.phase !== 'insurance') throw new Error('insurance not on offer');
+    this.insured = take;
+    this.phase = 'player';
+    if (handValue(cardRanks(this.dealerCards)).blackjack) {
+      this.dealerBlackjack = true;
+      this.holeRevealed = true;
+      this.settle();
+      return;
     }
     if (handValue(cardRanks(this.hands[0].cards)).blackjack) {
       this.hands[0].done = true;
@@ -225,6 +253,7 @@ export class Round {
   }
 
   private settle(): void {
+    this.insuranceNet = this.insured ? (this.dealerBlackjack ? 1 : -0.5) : 0;
     const dv = handValue(cardRanks(this.dealerCards));
     for (const hand of this.hands) {
       const v = handValue(cardRanks(hand.cards));
@@ -268,7 +297,7 @@ export class Round {
 
   summary(): RoundSummary {
     if (this.phase !== 'settled') throw new Error('round not settled');
-    const net = this.hands.reduce((s, h) => s + (h.net ?? 0), 0);
+    const net = this.hands.reduce((s, h) => s + (h.net ?? 0), 0) + this.insuranceNet;
     return {
       net,
       initialBet: 1,

@@ -99,6 +99,37 @@ describe('players API', () => {
     expect(r.body.streaks[0].bestStreak).toBe(12);
   });
 
+  it('syncs counting stats and ranks counters on their own board', async () => {
+    const counting = {
+      countingDecisions: 60,
+      countingCorrect: 59,
+      countingRolling: Array.from({ length: 60 }, (_, i) => i !== 0),
+    };
+    const ok = await json('PUT', `/api/players/${id}`, {
+      secret,
+      ...stats({ decisions: 80, correct: 76 }),
+      ...counting,
+    });
+    expect(ok.status).toBe(200);
+    // Counting counters are monotonic too.
+    expect(
+      (
+        await json('PUT', `/api/players/${id}`, {
+          secret,
+          ...stats({ decisions: 81, correct: 77 }),
+          ...counting,
+          countingDecisions: 10,
+        })
+      ).status
+    ).toBe(400);
+
+    const board = await json('GET', '/api/leaderboard');
+    expect(board.body.counters).toHaveLength(1);
+    expect(board.body.counters[0].name).toBe('Card Shark 21');
+    expect(board.body.counters[0].tier.id).toBe('platinum'); // 59/60 = 98.3%, below diamond's 98.5%
+    expect(board.body.counters[0].decisions).toBe(60);
+  });
+
   it('hides players below the minimum decision count', async () => {
     const r2 = await json('POST', '/api/players', { name: 'Newbie' });
     await json('PUT', `/api/players/${r2.body.id}`, {
@@ -120,7 +151,7 @@ describe('admin API', () => {
     const r = await json('GET', '/api/admin/overview', undefined, ADMIN);
     expect(r.status).toBe(200);
     expect(r.body.players).toBe(2);
-    expect(r.body.decisions).toBe(70);
+    expect(r.body.decisions).toBe(90); // 80 (Card Shark, after the counting sync) + 10 (Newbie)
   });
 
   it('lists, bans and deletes players', async () => {

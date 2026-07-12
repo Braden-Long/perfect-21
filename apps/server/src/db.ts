@@ -22,6 +22,10 @@ export interface PlayerRow {
   profile: string;
   /** Optional email for magic-link recovery. Never shown publicly. */
   email: string | null;
+  counting_decisions: number;
+  counting_correct: number;
+  /** JSON array of booleans — the rolling counting-rank window (≤200). */
+  counting_rolling: string;
 }
 
 export function openDb(path: string): DatabaseSync {
@@ -44,7 +48,10 @@ export function openDb(path: string): DatabaseSync {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       profile TEXT NOT NULL DEFAULT '',
-      email TEXT
+      email TEXT,
+      counting_decisions INTEGER NOT NULL DEFAULT 0,
+      counting_correct INTEGER NOT NULL DEFAULT 0,
+      counting_rolling TEXT NOT NULL DEFAULT '[]'
     );
   `);
   // Migrations for databases created before these columns existed (must run
@@ -52,6 +59,9 @@ export function openDb(path: string): DatabaseSync {
   for (const stmt of [
     `ALTER TABLE players ADD COLUMN profile TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE players ADD COLUMN email TEXT`,
+    `ALTER TABLE players ADD COLUMN counting_decisions INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE players ADD COLUMN counting_correct INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE players ADD COLUMN counting_rolling TEXT NOT NULL DEFAULT '[]'`,
   ]) {
     try {
       db.exec(stmt);

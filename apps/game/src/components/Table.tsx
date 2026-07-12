@@ -138,6 +138,37 @@ export function FeltText({ rules }: { rules: Rules }) {
   );
 }
 
+/* ---------- counting HUD ---------- */
+
+function CountPanel({ game }: { game: Game }) {
+  const [show, setShow] = useState(true);
+  const sign = (n: number, digits = 0) => `${n >= 0 ? '+' : ''}${n.toFixed(digits)}`;
+  return (
+    <aside className="count-panel">
+      {show && (
+        <div className="count-panel__grid">
+          <div>
+            <span>RC</span>
+            <b>{sign(game.rc)}</b>
+          </div>
+          <div>
+            <span>TC</span>
+            <b>{sign(game.tc, 1)}</b>
+          </div>
+          <div>
+            <span>Decks left</span>
+            <b>{game.decksLeft.toFixed(1)}</b>
+          </div>
+        </div>
+      )}
+      <button className="count-panel__toggle" onClick={() => setShow(!show)}>
+        {show ? 'Hide count — keep it yourself' : 'Show count'}
+      </button>
+      {game.freshShoe && <div className="count-panel__shuffle">SHUFFLE — count reset</div>}
+    </aside>
+  );
+}
+
 /* ---------- mute toggle ---------- */
 
 export function MuteButton() {
@@ -192,6 +223,7 @@ export function Table({
   const { round, feedback, available, session, tablePhase } = game;
   const betting = tablePhase === 'betting';
   const playing = round !== null && round.phase === 'player' && !game.endlessOver;
+  const insuring = round !== null && round.phase === 'insurance';
 
   const hint = useMemo(
     () => (mode === 'practice' && showHint && playing ? game.recommend() : null),
@@ -203,7 +235,9 @@ export function Table({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const action = ACTION_KEYS[e.key.toLowerCase()];
-      if (action && playing && available.includes(action)) {
+      if (insuring && (e.key === 'y' || e.key === 'n')) {
+        game.insure(e.key === 'y');
+      } else if (action && playing && available.includes(action)) {
         game.act(action);
       } else if ((e.key === ' ' || e.key === 'Enter') && game.canDeal) {
         e.preventDefault();
@@ -216,7 +250,7 @@ export function Table({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [available, betting, game, playing]);
+  }, [available, betting, game, insuring, playing]);
 
   if (game.status === 'loading') {
     return (
@@ -293,6 +327,7 @@ export function Table({
       </header>
 
       {banner}
+      {mode === 'counting' && <CountPanel game={game} />}
 
       <div className="table">
         <div className="table__felt">
@@ -330,9 +365,13 @@ export function Table({
               <div className="verdict__head">
                 {feedback.correct ? '✓ Correct' : feedback.timedOut ? '⏱ Time expired' : '✗ Incorrect'}
                 <span className="verdict__answer">
-                  Basic strategy: <b>{ACTION_LABEL[feedback.recommended].toUpperCase()}</b>
-                  {!feedback.correct &&
-                    ` (you ${feedback.timedOut ? 'ran out of time' : `chose ${ACTION_LABEL[feedback.chosen]}`})`}
+                  {feedback.headline ?? (
+                    <>
+                      Basic strategy: <b>{ACTION_LABEL[feedback.recommended].toUpperCase()}</b>
+                      {!feedback.correct &&
+                        ` (you ${feedback.timedOut ? 'ran out of time' : `chose ${ACTION_LABEL[feedback.chosen]}`})`}
+                    </>
+                  )}
                 </span>
               </div>
               <p className="verdict__why">{feedback.explanation}</p>
@@ -414,7 +453,27 @@ export function Table({
           {mode === 'competitive' && game.deadline && playing && (
             <TimerBar deadline={game.deadline} />
           )}
-          {playing ? (
+          {insuring ? (
+            <>
+              <div className="prompt">INSURANCE? PAYS 2 TO 1</div>
+              <div className="decisions">
+                <button
+                  className="decision decision--double"
+                  onClick={() => game.insure(true)}
+                >
+                  <span className="decision__glyph">✓</span>
+                  <span className="decision__label">Take (Y)</span>
+                </button>
+                <button
+                  className="decision decision--surrender"
+                  onClick={() => game.insure(false)}
+                >
+                  <span className="decision__glyph">✕</span>
+                  <span className="decision__label">Decline (N)</span>
+                </button>
+              </div>
+            </>
+          ) : playing ? (
             <>
               <div className="prompt">MAKE YOUR DECISION</div>
               <div className="decisions">

@@ -293,6 +293,40 @@ export function LeaderboardScreen({ profile, onBack }: { profile: Profile; onBac
               </table>
             )}
 
+            {board.counters && board.counters.length > 0 && (
+              <>
+                <h3 className="board-subtitle">Card counters</h3>
+                <p className="rules-note">
+                  Ranked on index-play and insurance accuracy in counting mode — a separate
+                  discipline from the basic-strategy board above.
+                </p>
+                <table className="board board--narrow">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th className="board__name">Player</th>
+                      <th>Rank</th>
+                      <th>Rolling</th>
+                      <th>Decisions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {board.counters.map((c, i) => (
+                      <tr key={c.name} className={c.name === profile.player?.name ? 'board__me' : ''}>
+                        <td>{i + 1}</td>
+                        <td className="board__name">{c.name}</td>
+                        <td>
+                          <TierBadge tier={c.tier} />
+                        </td>
+                        <td>{(c.rollingAccuracy * 100).toFixed(1)}%</td>
+                        <td>{c.decisions}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+
             <h3 className="board-subtitle">Endless — longest runs</h3>
             <p className="rules-note">
               A different game from accuracy rank: your score is the most correct decisions

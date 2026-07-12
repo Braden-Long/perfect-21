@@ -42,6 +42,12 @@ export interface BoardPlayer {
 export interface Leaderboard {
   players: BoardPlayer[];
   streaks: Array<{ name: string; bestStreak: number; tier: BoardTier | null }>;
+  counters?: Array<{
+    name: string;
+    tier: BoardTier | null;
+    rollingAccuracy: number;
+    decisions: number;
+  }>;
   minDecisions: number;
 }
 
@@ -147,6 +153,9 @@ export async function syncStats(profile: Profile): Promise<boolean> {
       net: profile.totalNet,
       evLoss: profile.totalEVLoss,
       rulesKey: rulesKey(profile.rules),
+      countingDecisions: profile.countingDecisions,
+      countingCorrect: profile.countingCorrect,
+      countingRolling: profile.countingHistory.slice(-200),
       // Full backup: whoever holds the recovery code can restore all of this.
       profile: JSON.stringify(profileSnapshot(profile)),
     }),

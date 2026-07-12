@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { RANK_TIERS, RANK_WINDOW, getStrategy } from '@perfect21/engine';
 import type { Strategy } from '@perfect21/engine';
 import type { Profile } from '../profile';
-import { rankOf } from '../profile';
+import { countingRankOf, rankOf, resetRankAspect } from '../profile';
+import { scheduleSync } from '../api';
 import type { Rules } from '@perfect21/engine';
 
 /** Builds (or fetches cached) strategy tables without blocking first paint. */
@@ -22,6 +23,40 @@ export function useStrategy(rules: Rules): Strategy | null {
   return strategy;
 }
 
+/** Two-step "reset this rank" button: no browser dialogs, no accidents. */
+function ResetRank({
+  label,
+  onReset,
+  disabled,
+}: {
+  label: string;
+  onReset: () => void;
+  disabled: boolean;
+}) {
+  const [arm, setArm] = useState(false);
+  useEffect(() => {
+    if (!arm) return;
+    const t = setTimeout(() => setArm(false), 4000);
+    return () => clearTimeout(t);
+  }, [arm]);
+  if (disabled) return null;
+  return (
+    <button
+      className={`btn btn--ghost ${arm ? 'btn--danger' : ''}`}
+      onClick={() => {
+        if (!arm) {
+          setArm(true);
+          return;
+        }
+        onReset();
+        setArm(false);
+      }}
+    >
+      {arm ? `Really reset ${label}? Click again` : `Reset ${label}`}
+    </button>
+  );
+}
+
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="stat">
@@ -34,7 +69,15 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 
 export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () => void }) {
   const strategy = useStrategy(profile.rules);
+  const [, forceRender] = useState(0);
   const rank = rankOf(profile);
+  const countingRank = countingRankOf(profile);
+
+  const reset = (aspect: 'basic' | 'counting') => {
+    resetRankAspect(profile, aspect);
+    scheduleSync(profile);
+    forceRender((n) => n + 1);
+  };
   const theoretical = strategy ? strategy.theoreticalRTP() : null;
   const played = profile.totalRounds > 0;
   const actualRTP = played ? 1 + profile.totalNet / profile.totalRounds : null;
@@ -61,6 +104,24 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
             <span className="rank-badge rank-badge--none">
               Unranked <i>{rank.needed} more decisions needed</i>
             </span>
+          )}
+          {countingRank.tier ? (
+            <span
+              className="rank-badge"
+              style={{ ['--rank-color' as string]: countingRank.tier.color }}
+            >
+              {countingRank.tier.name} · counting
+              <i>
+                {(countingRank.rollingAccuracy * 100).toFixed(1)}% over last{' '}
+                {Math.min(profile.countingHistory.length, RANK_WINDOW)} index calls
+              </i>
+            </span>
+          ) : (
+            profile.countingDecisions > 0 && (
+              <span className="rank-badge rank-badge--none">
+                Counting: unranked <i>{countingRank.needed} more index calls needed</i>
+              </span>
+            )
           )}
         </div>
 
@@ -119,6 +180,23 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
             </span>
           ))}
         </div>
+
+        <div className="admin-toolbar">
+          <ResetRank
+            label="accuracy rank"
+            disabled={profile.history.length === 0}
+            onReset={() => reset('basic')}
+          />
+          <ResetRank
+            label="counting rank"
+            disabled={profile.countingHistory.length === 0}
+            onReset={() => reset('counting')}
+          />
+        </div>
+        <p className="stat__hint" style={{ marginBottom: '1rem' }}>
+          Resetting clears only that rank's rolling window — lifetime stats, bankroll and
+          history stay.
+        </p>
 
         <button className="btn btn--ghost" onClick={onBack}>
           ‹ Back

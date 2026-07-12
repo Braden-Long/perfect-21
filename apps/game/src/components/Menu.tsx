@@ -1,7 +1,7 @@
 import { RANK_MIN_DECISIONS } from '@perfect21/engine';
 import type { Mode } from '../useGame';
 import type { Profile } from '../profile';
-import { rankOf, topMisses } from '../profile';
+import { countingRankOf, rankOf, topMisses } from '../profile';
 
 type PlayChoice = Mode | 'drill';
 
@@ -26,6 +26,11 @@ const MODES: Array<{ id: PlayChoice; name: string; desc: string }> = [
     id: 'endless',
     name: 'Endless',
     desc: 'A 100-chip stack. One strategy mistake — or busting out — ends the run.',
+  },
+  {
+    id: 'counting',
+    name: 'Card Counting',
+    desc: 'Keep the Hi-Lo count, play the Illustrious 18 deviations, take insurance only when the shoe says so. Separate rank.',
   },
 ];
 
@@ -99,6 +104,11 @@ export function Menu({
               {m.id === 'drill' && weakSpots > 0 && (
                 <span className="mode-card__best mode-card__best--warn">
                   {weakSpots} weak spot{weakSpots === 1 ? '' : 's'} to fix
+                </span>
+              )}
+              {m.id === 'counting' && countingRankOf(profile).tier && (
+                <span className="mode-card__best">
+                  counting rank: {countingRankOf(profile).tier!.name}
                 </span>
               )}
             </button>

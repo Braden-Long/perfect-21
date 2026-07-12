@@ -72,6 +72,7 @@ function safeEqual(a: string, b: string): boolean {
 function publicView(row: PlayerRow) {
   const rolling = JSON.parse(row.rolling) as boolean[];
   const rank = computeRank(rolling);
+  const countingRank = computeRank(JSON.parse(row.counting_rolling ?? '[]') as boolean[]);
   return {
     name: row.name,
     tier: rank.tier ? { id: rank.tier.id, name: rank.tier.name, color: rank.tier.color } : null,
@@ -81,6 +82,11 @@ function publicView(row: PlayerRow) {
     bestStreak: row.best_streak,
     rounds: row.rounds,
     updatedAt: row.updated_at,
+    countingTier: countingRank.tier
+      ? { id: countingRank.tier.id, name: countingRank.tier.name, color: countingRank.tier.color }
+      : null,
+    countingAccuracy: countingRank.rollingAccuracy,
+    countingDecisions: row.counting_decisions ?? 0,
   };
 }
 
@@ -174,10 +180,24 @@ export function createApp({ db, adminToken, staticDir, sendMail, publicUrl }: Ap
     ) {
       return void res.status(400).json({ error: 'invalid stats payload' });
     }
+    // Counting-rank fields arrived later and stay optional.
+    const cd = b.countingDecisions ?? row.counting_decisions ?? 0;
+    const cc = b.countingCorrect ?? row.counting_correct ?? 0;
+    const cRolling = b.countingRolling ?? JSON.parse(row.counting_rolling ?? '[]');
+    if (
+      !isIntIn(cd, row.counting_decisions ?? 0, (row.counting_decisions ?? 0) + 100_000) ||
+      !isIntIn(cc, 0, cd) ||
+      !Array.isArray(cRolling) ||
+      cRolling.length > ROLLING_CAP ||
+      !cRolling.every((x: unknown) => typeof x === 'boolean')
+    ) {
+      return void res.status(400).json({ error: 'invalid counting payload' });
+    }
 
     db.prepare(
       `UPDATE players SET decisions=?, correct=?, rolling=?, best_streak=?, rounds=?, net=?,
-         ev_loss=?, rules_key=?, profile=?, updated_at=? WHERE id=?`
+         ev_loss=?, rules_key=?, profile=?, counting_decisions=?, counting_correct=?,
+         counting_rolling=?, updated_at=? WHERE id=?`
     ).run(
       b.decisions,
       b.correct,
@@ -188,6 +208,9 @@ export function createApp({ db, adminToken, staticDir, sendMail, publicUrl }: Ap
       b.evLoss,
       String(b.rulesKey ?? '').slice(0, 60),
       typeof b.profile === 'string' ? b.profile : row.profile,
+      cd,
+      cc,
+      JSON.stringify(cRolling),
       Date.now(),
       row.id
     );
@@ -366,7 +389,21 @@ export function createApp({ db, adminToken, staticDir, sendMail, publicUrl }: Ap
       .sort((a, b) => b.bestStreak - a.bestStreak || b.rollingAccuracy - a.rollingAccuracy)
       .slice(0, 20)
       .map((p) => ({ name: p.name, bestStreak: p.bestStreak, tier: p.tier }));
-    res.json({ players, streaks, minDecisions: RANK_MIN_DECISIONS });
+    // Card counters rank on their own window (index plays + insurance calls).
+    const counterRows = db
+      .prepare('SELECT * FROM players WHERE banned = 0 AND counting_decisions >= ?')
+      .all(RANK_MIN_DECISIONS) as unknown as PlayerRow[];
+    const counters = counterRows
+      .map(publicView)
+      .sort((a, b) => b.countingAccuracy - a.countingAccuracy || b.countingDecisions - a.countingDecisions)
+      .slice(0, 100)
+      .map((p) => ({
+        name: p.name,
+        tier: p.countingTier,
+        rollingAccuracy: p.countingAccuracy,
+        decisions: p.countingDecisions,
+      }));
+    res.json({ players, streaks, counters, minDecisions: RANK_MIN_DECISIONS });
   });
 
   // ---- admin ----

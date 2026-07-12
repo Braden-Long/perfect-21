@@ -155,6 +155,29 @@ describe('Perfect 21 app', () => {
     expect(screen.getByText('10,6 vs 10')).toBeTruthy();
   });
 
+  it('plays counting mode with a live Hi-Lo count HUD', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('Card Counting'));
+    await waitFor(() => expect(screen.getByText('PLACE YOUR BET')).toBeTruthy(), {
+      timeout: 30000,
+    });
+
+    // Fresh shoe: running count zero, full shoe on the rack.
+    expect(screen.getByText('RC').parentElement!.textContent).toContain('+0');
+    expect(screen.getByText('TC').parentElement!.textContent).toContain('+0.0');
+    expect(screen.getByText('Decks left').parentElement!.textContent).toContain('8.0');
+
+    fireEvent.click(screen.getByText('DEAL'));
+    // Cards are on the felt; the count HUD reflects them (any value is fine,
+    // but decks remaining must have dropped below a full 8-deck shoe).
+    const decks = screen.getByText('Decks left').parentElement!.textContent!;
+    expect(decks).not.toContain('8.0');
+
+    // The count can be hidden to practice keeping it yourself.
+    fireEvent.click(screen.getByText(/Hide count/));
+    expect(screen.queryByText('RC')).toBeNull();
+  });
+
   it('shows a friendly offline notice on the leaderboard without a server', async () => {
     render(<App />);
     fireEvent.click(screen.getByText('Leaderboard'));

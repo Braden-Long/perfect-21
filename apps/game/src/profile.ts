@@ -57,6 +57,10 @@ export interface Profile {
   handLog: HandLogEntry[];
   /** Client-side display hint only; the server holds the authoritative email. */
   recoveryEmail?: string;
+  /** Card-counting mode has its own rank: rolling window + lifetime counters. */
+  countingHistory: boolean[];
+  countingDecisions: number;
+  countingCorrect: number;
 }
 
 function fresh(): Profile {
@@ -73,6 +77,9 @@ function fresh(): Profile {
     rebuys: 0,
     misses: {},
     handLog: [],
+    countingHistory: [],
+    countingDecisions: 0,
+    countingCorrect: 0,
   };
 }
 
@@ -104,10 +111,18 @@ export function recordDecision(p: Profile, correct: boolean): void {
 /**
  * Feed the mistake memory and the hand-history stream. Called for every graded
  * decision in every mode (drill included — that's how weak spots heal).
+ * Counting-mode calls pass trackMisses=false: an index miss is not a basic-
+ * strategy leak and must not pollute the drill.
  */
-export function logDecision(p: Profile, cellKey: string, entry: HandLogEntry): void {
+export function logDecision(
+  p: Profile,
+  cellKey: string,
+  entry: HandLogEntry,
+  trackMisses = true
+): void {
   p.handLog.push(entry);
   if (p.handLog.length > HAND_LOG_CAP) p.handLog.splice(0, p.handLog.length - HAND_LOG_CAP);
+  if (!trackMisses) return;
   const miss = p.misses[cellKey];
   if (!entry.correct) {
     if (miss) {
@@ -148,6 +163,30 @@ export function rankOf(p: Profile): RankResult {
   return computeRank(p.history);
 }
 
+export function recordCountingDecision(p: Profile, correct: boolean): void {
+  p.countingHistory.push(correct);
+  if (p.countingHistory.length > HISTORY_CAP) {
+    p.countingHistory.splice(0, p.countingHistory.length - HISTORY_CAP);
+  }
+  p.countingDecisions++;
+  if (correct) p.countingCorrect++;
+}
+
+export function countingRankOf(p: Profile): RankResult {
+  return computeRank(p.countingHistory);
+}
+
+/**
+ * Start one rank from scratch without touching anything else. Lifetime
+ * counters stay (they're monotonic on the server); only the rolling window
+ * that determines the rank is cleared.
+ */
+export function resetRankAspect(p: Profile, aspect: 'basic' | 'counting'): void {
+  if (aspect === 'basic') p.history = [];
+  else p.countingHistory = [];
+  saveProfile(p);
+}
+
 // ---- cross-device recovery ----
 // Claiming a leaderboard name IS the account: the id+secret pair, formatted
 // as a recovery code, restores everything on any device. No email, no password.
@@ -171,7 +210,12 @@ export function parseRecoveryCode(code: string): { id: string; secret: string } 
 /** Everything worth backing up, trimmed to keep the sync payload small. */
 export function profileSnapshot(p: Profile): Omit<Profile, 'player'> {
   const { player: _player, ...rest } = p;
-  return { ...rest, history: p.history.slice(-200), handLog: p.handLog.slice(-60) };
+  return {
+    ...rest,
+    history: p.history.slice(-200),
+    countingHistory: p.countingHistory.slice(-200),
+    handLog: p.handLog.slice(-60),
+  };
 }
 
 /** Rebuild and persist a profile from a recovered server snapshot. */

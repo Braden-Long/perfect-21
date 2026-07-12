@@ -57,8 +57,22 @@ were actually worth.
 | **Competitive** | 10 seconds per decision; timeouts grade as errors; rank on the line |
 | **Endless** | A 100-chip run: one wrong decision **or busting out** ends it — longest streak wins |
 | **Drill** | Flashcard reps dealt from *your own mistake history* — no chips, pure decisions |
+| **Card Counting** | Live Hi-Lo count HUD, Illustrious 18 / Fab 4 index plays, insurance at TC ≥ +3 — its own rank |
 
-Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`, `/#drill`).
+Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`, `/#drill`, `/#counting`).
+
+### Card counting mode
+
+The table shows the Hi-Lo running count, exact true count (RC ÷ decks remaining) and decks
+left — hideable, so you can keep the count yourself and check. The count is computed from the
+actual dealt shoe (hole card counted only once revealed; reshuffle at the cut card resets it),
+so impossible counts can't occur. Decisions are graded against the **index play**, not raw
+basic strategy: Schlesinger's Illustrious 18 and Fab 4 (surrender games), with insurance
+offered on every ace and graded against the +3 index. Getting the basic-strategy answer while
+missing the index counts as a miss — the feedback explains both layers. Indices are the
+standard multi-deck S17 baseline (the 11 vs A index is skipped under H17, where basic already
+doubles); play a 4+ deck shoe for the numbers to be exact. Counting mode has a **separate
+rank and leaderboard**, and either rank can be reset independently from the stats screen.
 
 ### Mistake memory
 
@@ -163,10 +177,9 @@ subtracted from theory.
 
 ## Roadmap
 
-- **Card counting mode** (planned next): running/true count drills, deviation indices (Illustrious 18).
 - **Server-side decision verification**: replay submitted hands through the engine for
   anticheat-grade leaderboards.
-- Insurance decisions (grade "never take insurance" — trivially correct but worth teaching).
+- Bet-spread grading in counting mode (Kelly-style spread vs. the true count).
 - Multi-seat play and richer table presentation.
 - **Steam packaging** (optional, shell already works): app ID, steamworks.js achievements,
   Windows build via electron-builder.

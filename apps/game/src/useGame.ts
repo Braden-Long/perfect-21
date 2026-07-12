@@ -1,19 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ACTION_LABEL,
+  INSURANCE_INDEX,
   Round,
   SessionStats,
   Shoe,
   cardRanks,
+  countCards,
   explain,
   getStrategy,
+  indexPlay,
+  trueCount,
 } from '@perfect21/engine';
 import type { Action, CellEVs, Recommendation, Strategy } from '@perfect21/engine';
 import type { Profile } from './profile';
-import { STARTING_BANKROLL, logDecision, recordDecision, saveProfile } from './profile';
+import {
+  STARTING_BANKROLL,
+  logDecision,
+  recordCountingDecision,
+  recordDecision,
+  saveProfile,
+} from './profile';
+import { cellLabel } from './drill';
 import { scheduleSync } from './api';
 import { play } from './sound';
 
-export type Mode = 'practice' | 'competitive' | 'endless';
+export type Mode = 'practice' | 'competitive' | 'endless' | 'counting';
 export type TablePhase = 'betting' | 'playing';
 export type EndReason = 'mistake' | 'busted';
 
@@ -31,7 +43,10 @@ export interface Feedback {
   chosen: Action;
   recommended: Action;
   explanation: string;
-  evs: CellEVs;
+  /** Live EVs when the verdict is an action call; empty for insurance calls. */
+  evs: Partial<CellEVs>;
+  /** Custom verdict headline (deviation and insurance calls); replaces the basic-strategy line. */
+  headline?: string;
 }
 
 export interface Game {
@@ -72,6 +87,16 @@ export interface Game {
   canDeal: boolean;
   canRebuy: boolean;
   rebuy: () => void;
+  // --- card counting mode ---
+  /** Hi-Lo running count of every card visible so far this shoe. */
+  rc: number;
+  /** True count: rc / decks remaining. */
+  tc: number;
+  decksLeft: number;
+  /** True right after a reshuffle, until the next deal. */
+  freshShoe: boolean;
+  /** Answer the insurance offer (counting mode, ace up). */
+  insure: (take: boolean) => void;
 }
 
 export function useGame(profile: Profile, mode: Mode): Game {
@@ -99,6 +124,19 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const bankrollRef = useRef(bankroll);
   const betRef = useRef(0);
   const endedRef = useRef(false);
+  /** Hi-Lo count of everything folded in from finished rounds this shoe. */
+  const baseRCRef = useRef(0);
+  const [freshShoe, setFreshShoe] = useState(false);
+  const counting = mode === 'counting';
+
+  /** Count contribution of the cards currently face-up on the table. */
+  const visibleCount = (r: Round | null): number => {
+    if (!r) return 0;
+    let n = 0;
+    for (const h of r.hands) n += countCards(h.cards);
+    n += countCards(r.holeRevealed ? r.dealerCards : r.dealerCards.slice(0, 1));
+    return n;
+  };
   const [theoreticalRTP, setTheoreticalRTP] = useState(1);
 
   const endlessOver = endReason !== null;
@@ -125,10 +163,14 @@ export function useGame(profile: Profile, mode: Mode): Game {
     sessionRef.current.addRound(summary);
     profile.totalRounds++;
     profile.totalNet += summary.net;
+    // Everything is face-up now — fold this round into the running count.
+    baseRCRef.current += visibleCount(round);
     // Return each hand's surviving stake + winnings, in chips. Everything the
     // round consumed was already deducted at deal/double/split time.
     const unitBet = betRef.current;
-    const returned = round.hands.reduce((s, h) => s + (h.bet + (h.net ?? 0)) * unitBet, 0);
+    const returned =
+      round.hands.reduce((s, h) => s + (h.bet + (h.net ?? 0)) * unitBet, 0) +
+      (round.insured ? (round.insuranceNet + 0.5) * unitBet : 0);
     const roll = bankrollRef.current + returned;
     setRoll(roll);
     setLastNet(summary.net * unitBet);
@@ -155,10 +197,19 @@ export function useGame(profile: Profile, mode: Mode): Game {
     if (stake < 1 || stake > bankrollRef.current) return;
     betRef.current = stake;
     play('deal');
+    if (shoe.needsShuffle) {
+      // Round.deal() is about to reshuffle: the count starts over.
+      baseRCRef.current = 0;
+      setFreshShoe(true);
+    } else {
+      setFreshShoe(false);
+    }
     setRoll(bankrollRef.current - stake);
     setTotalPlay((t) => t + stake);
     setLastNet(null);
-    const round = new Round(strategy.rules, shoe);
+    const round = new Round(strategy.rules, shoe, {
+      offerInsurance: counting && strategy.rules.peek,
+    });
     roundRef.current = round;
     recordedRef.current = false;
     setFeedback(null);
@@ -166,7 +217,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     round.deal();
     settleIfDone();
     bump();
-  }, [bump, chipStack, endlessOver, settleIfDone, setRoll, tablePhase]);
+  }, [bump, chipStack, counting, endlessOver, settleIfDone, setRoll, tablePhase]);
 
   // Build (or fetch cached) strategy tables off the first paint.
   useEffect(() => {
@@ -225,31 +276,73 @@ export function useGame(profile: Profile, mode: Mode): Game {
       if (!availableNow().includes(chosen)) return;
       const rec = recommend();
       if (!rec) return;
-      const correct = !timedOut && chosen === rec.action;
-      const evLoss = (rec.evs[rec.action] ?? 0) - (rec.evs[chosen] ?? 0);
-      sessionRef.current.addDecision({ correct, evLoss, chosen, recommended: rec.action });
-      recordDecision(profile, correct);
-      logDecision(profile, rec.cell.key, {
-        t: Date.now(),
-        ranks: cardRanks(r.activeHand.cards),
-        up: r.dealerUp.rank,
-        chosen,
-        recommended: rec.action,
-        correct,
-        evLoss,
-        mode,
-      });
+
+      // In counting mode the graded target is the index play, not raw basic.
+      let expected = rec.action;
+      let headline: string | undefined;
+      let explanation = explain(strategy, cardRanks(r.activeHand.cards), r.dealerUp.rank, rec);
+      if (counting) {
+        const shoe = shoeRef.current!;
+        const tcNow = trueCount(baseRCRef.current + visibleCount(r), shoe.remaining);
+        const playNow = indexPlay(rec.cell.key, tcNow, rec.action, availableNow(), profile.rules);
+        expected = playNow.action;
+        const tcStr = `${tcNow >= 0 ? '+' : ''}${tcNow.toFixed(1)}`;
+        if (playNow.deviation && expected !== rec.action) {
+          const idx = playNow.deviation.index;
+          const idxStr = `${idx >= 0 ? '+' : ''}${idx}`;
+          headline = `Counter's play: ${ACTION_LABEL[expected].toUpperCase()} — ${cellLabel(
+            rec.cell.key
+          )} index is ${idxStr}, TC is ${tcStr}`;
+          explanation =
+            `The count overrides the book here. ${
+              playNow.triggered
+                ? `At TC ${tcStr} (index ${idxStr}) the rich shoe makes ${ACTION_LABEL[expected].toLowerCase()} the profitable play`
+                : `Below the ${idxStr} index (TC ${tcStr}) the play reverts to ${ACTION_LABEL[expected].toLowerCase()}`
+            } — basic strategy alone would ${ACTION_LABEL[rec.action].toLowerCase()}. ` +
+            `(Illustrious 18 / Fab 4, Hi-Lo, multi-deck baseline.)`;
+        } else if (playNow.deviation && chosen === playNow.deviation.above && chosen !== expected) {
+          explanation += ` The ${cellLabel(rec.cell.key)} index is ${
+            playNow.deviation.index >= 0 ? '+' : ''
+          }${playNow.deviation.index} — the count (TC ${tcStr}) isn't there yet.`;
+        }
+      }
+
+      const correct = !timedOut && chosen === expected;
+      // EV bookkeeping stays basic-strategy-honest: deviations aren't in the CD model.
+      const evLoss = expected === rec.action ? (rec.evs[rec.action] ?? 0) - (rec.evs[chosen] ?? 0) : 0;
+      sessionRef.current.addDecision({ correct, evLoss, chosen, recommended: expected });
+      if (counting) {
+        recordCountingDecision(profile, correct);
+      } else {
+        recordDecision(profile, correct);
+        profile.totalEVLoss += evLoss;
+      }
+      logDecision(
+        profile,
+        rec.cell.key,
+        {
+          t: Date.now(),
+          ranks: cardRanks(r.activeHand.cards),
+          up: r.dealerUp.rank,
+          chosen,
+          recommended: expected,
+          correct,
+          evLoss,
+          mode,
+        },
+        // Counting misses are index misses — keep them out of the basic drill.
+        !counting
+      );
       setTape((prev) => [...prev, correct]);
-      profile.totalEVLoss += evLoss;
-      const explanation = explain(strategy, cardRanks(r.activeHand.cards), r.dealerUp.rank, rec);
       setFeedback({
         id: ++feedbackIdRef.current,
         correct,
         timedOut,
         chosen,
-        recommended: rec.action,
+        recommended: expected,
         explanation,
         evs: rec.evs,
+        headline,
       });
       play(correct ? 'correct' : 'incorrect');
       if (correct) {
@@ -309,6 +402,11 @@ export function useGame(profile: Profile, mode: Mode): Game {
 
   const canRebuy = mode !== 'endless' && tablePhase === 'betting' && bankroll < 1;
 
+  const cardsLeft = shoeRef.current?.remaining ?? profile.rules.decks * 52;
+  const rcNow = counting
+    ? baseRCRef.current + (round && !recordedRef.current ? visibleCount(round) : 0)
+    : 0;
+
   const rebuy = useCallback(() => {
     if (mode === 'endless' || bankrollRef.current >= 1) return;
     profile.rebuys++;
@@ -317,6 +415,52 @@ export function useGame(profile: Profile, mode: Mode): Game {
     setChipStack([DEFAULT_BET]);
     saveProfile(profile);
   }, [mode, profile, setRoll]);
+
+  /** Insurance call (counting mode): graded against the +3 index, costs half the bet. */
+  const insure = useCallback(
+    (take: boolean) => {
+      const r = roundRef.current;
+      const shoe = shoeRef.current;
+      if (!r || !shoe || r.phase !== 'insurance') return;
+      const tcNow = trueCount(baseRCRef.current + visibleCount(r), shoe.remaining);
+      const shouldTake = tcNow >= INSURANCE_INDEX;
+      const correct = take === shouldTake;
+      const tcStr = `${tcNow >= 0 ? '+' : ''}${tcNow.toFixed(1)}`;
+      sessionRef.current.addDecision({
+        correct,
+        evLoss: 0,
+        chosen: take ? 'stand' : 'hit',
+        recommended: shouldTake ? 'stand' : 'hit',
+      });
+      recordCountingDecision(profile, correct);
+      setTape((prev) => [...prev, correct]);
+      setFeedback({
+        id: ++feedbackIdRef.current,
+        correct,
+        timedOut: false,
+        chosen: 'stand',
+        recommended: 'stand',
+        headline: `Insurance: ${shouldTake ? 'TAKE it' : 'decline'} — index +${INSURANCE_INDEX}, TC is ${tcStr}${
+          correct ? '' : take ? ' (you took it)' : ' (you declined)'
+        }`,
+        explanation: shouldTake
+          ? `At TC ${tcStr} the shoe is so ten-rich that the hole card is a ten often enough to make the 2:1 payout profitable. This is the single most valuable index play in the game.`
+          : `Insurance pays 2:1 but needs the hole card to be a ten more than 1 time in 3. At TC ${tcStr} it isn't — insurance is a losing bet until TC reaches +${INSURANCE_INDEX}.`,
+        evs: {},
+      });
+      play(correct ? 'correct' : 'incorrect');
+      if (take) {
+        play('chip', 0.1);
+        setRoll(bankrollRef.current - 0.5 * betRef.current);
+        setTotalPlay((t) => t + 0.5 * betRef.current);
+      }
+      r.takeInsurance(take);
+      settleIfDone();
+      saveProfile(profile);
+      bump();
+    },
+    [bump, profile, settleIfDone, setRoll]
+  );
 
   // Competitive decision clock: reset whenever a new decision point appears.
   const decisionKey =
@@ -372,5 +516,10 @@ export function useGame(profile: Profile, mode: Mode): Game {
       status === 'ready' && tablePhase === 'betting' && !endlessOver && bet >= 1 && bet <= bankroll,
     canRebuy,
     rebuy,
+    rc: rcNow,
+    tc: counting ? trueCount(rcNow, cardsLeft) : 0,
+    decksLeft: cardsLeft / 52,
+    freshShoe,
+    insure,
   };
 }

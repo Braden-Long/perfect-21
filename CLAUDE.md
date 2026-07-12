@@ -28,6 +28,11 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
 ## Invariants
 - The strategy source of truth is the blackjackinfo.com engine; `strategy.test.ts` pins the
   derived charts to it. If an EV-model change flips a chart cell, the site is right — dig in.
+- Counting deviations (engine/counting.ts) are Schlesinger's Illustrious 18 + Fab 4, verified
+  against gamblingcalc.com's deviations calculator: multi-deck S17 baseline, TC = RC ÷ decks
+  remaining (exact, no flooring), trigger at TC ≥ index, insurance index +3. 11vA is s17Only.
+  Counting-mode grading targets the index play; misses there must never feed the basic drill,
+  and EV bookkeeping stays basic-only (deviations aren't in the CD model).
 - EVs/RTP are quoted per initial bet. In-play EVs are conditioned on no dealer blackjack in
   peek games and unconditional in no-peek games.
 - Strategy build is ~1s per rule set (cached in-process by `getStrategy`); never call it in a

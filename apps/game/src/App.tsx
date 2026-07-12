@@ -30,6 +30,7 @@ const MODE_HASHES: Record<string, Mode> = {
   '#practice': 'practice',
   '#competitive': 'competitive',
   '#endless': 'endless',
+  '#counting': 'counting',
 };
 
 function screenForHash(hash: string): Screen | null {
