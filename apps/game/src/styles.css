@@ -631,6 +631,118 @@ a {
   box-shadow: 0 0 26px rgba(82, 216, 150, 0.6);
 }
 
+/* session decision tape (✓/✗ dots in the HUD) */
+
+.tape {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 170px;
+  margin-bottom: 0.4rem;
+}
+
+.tape__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.tape__dot--ok {
+  background: rgba(82, 216, 150, 0.8);
+}
+
+.tape__dot--miss {
+  background: var(--bad);
+  box-shadow: 0 0 7px rgba(229, 100, 95, 0.8);
+}
+
+/* drill mode */
+
+.drill-target {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: rgba(238, 228, 198, 0.75);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(216, 179, 108, 0.3);
+  border-radius: 999px;
+  padding: 0.28rem 0.9rem;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* history screen */
+
+.board--misses td {
+  white-space: nowrap;
+}
+
+.history-good {
+  color: var(--good);
+  font-weight: 700;
+}
+
+.history-bad {
+  color: var(--bad);
+}
+
+.hand-stream {
+  max-width: 640px;
+  margin: 0.8rem auto 1.6rem;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+}
+
+.hand-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hand-row--miss {
+  background: rgba(229, 100, 95, 0.08);
+}
+
+.hand-row__mark {
+  color: var(--good);
+  font-weight: 800;
+  width: 1rem;
+  flex-shrink: 0;
+}
+
+.hand-row--miss .hand-row__mark {
+  color: var(--bad);
+}
+
+.hand-row__hand {
+  font-weight: 700;
+  min-width: 6.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hand-row__play {
+  flex: 1;
+  color: var(--ink-dim);
+}
+
+.hand-row__play b {
+  color: var(--ink);
+}
+
+.hand-row__meta {
+  font-size: 0.68rem;
+  color: rgba(185, 178, 160, 0.55);
+  white-space: nowrap;
+}
+
+.mode-card__best--warn {
+  color: #e8b64f;
+}
+
 .pos {
   color: var(--good) !important;
 }

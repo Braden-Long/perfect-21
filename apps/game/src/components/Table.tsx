@@ -15,7 +15,7 @@ const ACTION_KEYS: Record<string, Action> = {
 };
 
 /** Fixed button order (Evolution-style) so muscle memory forms. */
-const DECISION_BUTTONS: Array<{ action: Action; glyph: string }> = [
+export const DECISION_BUTTONS: Array<{ action: Action; glyph: string }> = [
   { action: 'double', glyph: '2×' },
   { action: 'hit', glyph: '+' },
   { action: 'stand', glyph: '−' },
@@ -27,7 +27,7 @@ function fmtChips(n: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 1 });
 }
 
-function totalLabel(cards: HandState['cards']): string {
+export function totalLabel(cards: HandState['cards']): string {
   const v = handValue(cardRanks(cards));
   if (v.blackjack) return 'BJ';
   if (v.bust) return `${v.total} ✕`;
@@ -105,7 +105,7 @@ function ChipStack({ amount, label }: { amount: number; label?: boolean }) {
 
 /* ---------- felt lettering ---------- */
 
-function FeltText({ rules }: { rules: Rules }) {
+export function FeltText({ rules }: { rules: Rules }) {
   const dealerLine = `DEALER ${rules.soft17 === 's17' ? 'STANDS ON ALL 17' : 'HITS SOFT 17'} · ${
     rules.decks
   } ${rules.decks === 1 ? 'DECK' : 'DECKS'}`;
@@ -468,6 +468,13 @@ export function Table({
         </div>
 
         <div className="hud-side">
+          {game.tape.length > 0 && (
+            <div className="tape" title="This session's decisions">
+              {game.tape.slice(-24).map((ok, i) => (
+                <span key={i} className={ok ? 'tape__dot tape__dot--ok' : 'tape__dot tape__dot--miss'} />
+              ))}
+            </div>
+          )}
           {mode === 'endless' && (
             <div className="pill pill--endless">
               <span>Run</span>

@@ -8,6 +8,8 @@ import { RulesDialog } from './components/RulesDialog';
 import { LeaderboardScreen } from './components/LeaderboardScreen';
 import { SupportDialog } from './components/SupportDialog';
 import { AdminScreen } from './components/AdminScreen';
+import { DrillScreen } from './components/DrillScreen';
+import { HistoryScreen } from './components/HistoryScreen';
 import { loadProfile, saveProfile } from './profile';
 import { useGame } from './useGame';
 import type { Mode } from './useGame';
@@ -15,6 +17,8 @@ import type { Mode } from './useGame';
 type Screen =
   | { name: 'menu' }
   | { name: 'game'; mode: Mode }
+  | { name: 'drill' }
+  | { name: 'history' }
   | { name: 'stats' }
   | { name: 'chart' }
   | { name: 'board' }
@@ -28,6 +32,7 @@ const MODE_HASHES: Record<string, Mode> = {
 
 function screenForHash(hash: string): Screen | null {
   if (hash === '#admin') return { name: 'admin' };
+  if (hash === '#drill') return { name: 'drill' };
   const mode = MODE_HASHES[hash];
   return mode ? { name: 'game', mode } : null;
 }
@@ -37,6 +42,11 @@ function GameScreen({ mode, onExit }: { mode: Mode; onExit: () => void }) {
   const [profile] = useState(loadProfile);
   const game = useGame(profile, mode);
   return <Table game={game} mode={mode} profile={profile} onExit={onExit} />;
+}
+
+function DrillGameScreen({ onExit }: { onExit: () => void }) {
+  const [profile] = useState(loadProfile);
+  return <DrillScreen profile={profile} onExit={onExit} />;
 }
 
 export default function App() {
@@ -73,6 +83,16 @@ export default function App() {
   switch (screen.name) {
     case 'game':
       return <GameScreen key={screen.mode} mode={screen.mode} onExit={backToMenu} />;
+    case 'drill':
+      return <DrillGameScreen onExit={backToMenu} />;
+    case 'history':
+      return (
+        <HistoryScreen
+          profile={profile}
+          onDrill={() => setScreen({ name: 'drill' })}
+          onBack={backToMenu}
+        />
+      );
     case 'stats':
       return <StatsScreen profile={profile} onBack={backToMenu} />;
     case 'chart':
@@ -86,7 +106,10 @@ export default function App() {
         <>
           <Menu
             profile={profile}
-            onPlay={(mode) => setScreen({ name: 'game', mode })}
+            onPlay={(mode) =>
+              setScreen(mode === 'drill' ? { name: 'drill' } : { name: 'game', mode })
+            }
+            onHistory={() => setScreen({ name: 'history' })}
             onStats={() => setScreen({ name: 'stats' })}
             onChart={() => setScreen({ name: 'chart' })}
             onRules={() => setRulesOpen(true)}

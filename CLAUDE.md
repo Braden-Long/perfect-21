@@ -31,6 +31,10 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   peek games and unconditional in no-peek games.
 - Strategy build is ~1s per rule set (cached in-process by `getStrategy`); never call it in a
   render path without the deferred/loading pattern (see `useStrategy`).
+- Mistake memory lives in the profile (`misses` keyed by chart cell key from
+  `Recommendation.cell.key`, plus a capped `handLog`). Drill mode (drill.ts/useDrill.ts) is
+  flashcards, not rounds: it synthesizes cards per cell, grades one decision, and must never
+  touch rank/bankroll/leaderboard; correct reps decay misses (~3 to heal one).
 - The chip bankroll is a **client-side layer** (useGame.ts): the engine stays unit-based
   (initial bet = 1) so EV/RTP math is untouched; chips = units × the round's bet, and server
   sync still sends unit-based `net`. Endless runs use an ephemeral 100-chip stack; the

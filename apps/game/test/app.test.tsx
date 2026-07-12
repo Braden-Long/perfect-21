@@ -8,12 +8,13 @@ describe('Perfect 21 app', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => cleanup());
 
-  it('renders the lobby with all three modes', () => {
+  it('renders the lobby with all four modes', () => {
     render(<App />);
     expect(screen.getByText('PERFECT')).toBeTruthy();
     expect(screen.getByText('Practice')).toBeTruthy();
     expect(screen.getByText('Competitive')).toBeTruthy();
     expect(screen.getByText('Endless')).toBeTruthy();
+    expect(screen.getByText('Drill')).toBeTruthy();
     expect(screen.getByText('Unranked')).toBeTruthy();
   });
 
@@ -84,6 +85,74 @@ describe('Perfect 21 app', () => {
     fireEvent.click(screen.getByTitle('Undo chip'));
     // The staged stack shows the total on the bet spot.
     expect(screen.getByText('30')).toBeTruthy();
+  });
+
+  it('runs drill reps with graded feedback', async () => {
+    // Seed a tracked mistake so drill has a weak spot to target.
+    localStorage.setItem(
+      'perfect21.profile.v1',
+      JSON.stringify({
+        misses: {
+          'h16-10': {
+            key: 'h16-10',
+            n: 5,
+            evLost: 0.4,
+            recommended: 'hit',
+            chosen: { stand: 5 },
+            last: Date.now(),
+          },
+        },
+      })
+    );
+    render(<App />);
+    fireEvent.click(screen.getByText('Drill'));
+    await waitFor(() => expect(screen.getByText('MAKE YOUR DECISION')).toBeTruthy(), {
+      timeout: 30000,
+    });
+    expect(screen.getByText(/weak spot/)).toBeTruthy();
+
+    // Any rep: stand is always available; grading feedback must appear.
+    fireEvent.click(screen.getByText('Stand').closest('button')!);
+    expect(screen.getByText(/Basic strategy:/)).toBeTruthy();
+
+    // NEXT deals a fresh situation.
+    fireEvent.click(screen.getByText('NEXT'));
+    expect(screen.getByText('MAKE YOUR DECISION')).toBeTruthy();
+  });
+
+  it('shows the mistake history with a drill call-to-action', () => {
+    localStorage.setItem(
+      'perfect21.profile.v1',
+      JSON.stringify({
+        misses: {
+          'h16-10': {
+            key: 'h16-10',
+            n: 4,
+            evLost: 0.3,
+            recommended: 'hit',
+            chosen: { stand: 4 },
+            last: Date.now(),
+          },
+        },
+        handLog: [
+          {
+            t: Date.now(),
+            ranks: [10, 6],
+            up: 10,
+            chosen: 'stand',
+            recommended: 'hit',
+            correct: false,
+            evLoss: 0.12,
+            mode: 'practice',
+          },
+        ],
+      })
+    );
+    render(<App />);
+    fireEvent.click(screen.getByText('History'));
+    expect(screen.getByText('hard 16 vs 10')).toBeTruthy();
+    expect(screen.getByText('Drill these weak spots')).toBeTruthy();
+    expect(screen.getByText('10,6 vs 10')).toBeTruthy();
   });
 
   it('shows a friendly offline notice on the leaderboard without a server', async () => {

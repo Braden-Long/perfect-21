@@ -9,7 +9,7 @@ import {
 } from '@perfect21/engine';
 import type { Action, CellEVs, Recommendation, Strategy } from '@perfect21/engine';
 import type { Profile } from './profile';
-import { STARTING_BANKROLL, recordDecision, saveProfile } from './profile';
+import { STARTING_BANKROLL, logDecision, recordDecision, saveProfile } from './profile';
 import { scheduleSync } from './api';
 
 export type Mode = 'practice' | 'competitive' | 'endless';
@@ -47,6 +47,8 @@ export interface Game {
   bestStreak: number;
   endlessOver: boolean;
   endReason: EndReason | null;
+  /** This session's graded decisions in order — the HUD ✓/✗ tape. */
+  tape: boolean[];
   /** Epoch ms when the current decision times out (competitive mode). */
   deadline: number | null;
   // --- chips ---
@@ -84,6 +86,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const [chipStack, setChipStack] = useState<number[]>([]);
   const [totalPlay, setTotalPlay] = useState(0);
   const [lastNet, setLastNet] = useState<number | null>(null);
+  const [tape, setTape] = useState<boolean[]>([]);
 
   const strategyRef = useRef<Strategy | null>(null);
   const shoeRef = useRef<Shoe | null>(null);
@@ -222,6 +225,17 @@ export function useGame(profile: Profile, mode: Mode): Game {
       const evLoss = (rec.evs[rec.action] ?? 0) - (rec.evs[chosen] ?? 0);
       sessionRef.current.addDecision({ correct, evLoss, chosen, recommended: rec.action });
       recordDecision(profile, correct);
+      logDecision(profile, rec.cell.key, {
+        t: Date.now(),
+        ranks: cardRanks(r.activeHand.cards),
+        up: r.dealerUp.rank,
+        chosen,
+        recommended: rec.action,
+        correct,
+        evLoss,
+        mode,
+      });
+      setTape((prev) => [...prev, correct]);
       profile.totalEVLoss += evLoss;
       const explanation = explain(strategy, cardRanks(r.activeHand.cards), r.dealerUp.rank, rec);
       setFeedback({
@@ -335,6 +349,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     bestStreak: profile.bestEndless,
     endlessOver,
     endReason,
+    tape,
     deadline,
     tablePhase,
     bankroll,

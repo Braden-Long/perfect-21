@@ -51,8 +51,19 @@ were actually worth.
 | **Practice** | No pressure, optional hints, feedback on every decision |
 | **Competitive** | 10 seconds per decision; timeouts grade as errors; rank on the line |
 | **Endless** | A 100-chip run: one wrong decision **or busting out** ends it — longest streak wins |
+| **Drill** | Flashcard reps dealt from *your own mistake history* — no chips, pure decisions |
 
-Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`).
+Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`, `/#drill`).
+
+### Mistake memory
+
+Every graded decision feeds a per-cell mistake ledger (e.g. "hard 16 vs 10: missed 5×,
+usually stands, 42% of a bet given up") and a rolling hand history. The **History** screen
+shows both; **Drill** samples your leaks by frequency × EV severity (75% targeted, 25%
+chart coverage) and each correct rep decays the record until the leak is considered healed
+(~3 reps per miss). Drill reps update the mistake memory but never your rank, bankroll, or
+the leaderboard — practicing a weakness is never punished. A ✓/✗ tape of the session's
+decisions runs in the table HUD.
 
 ## Running it
 

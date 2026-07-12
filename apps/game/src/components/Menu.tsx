@@ -1,9 +1,11 @@
 import { RANK_MIN_DECISIONS } from '@perfect21/engine';
 import type { Mode } from '../useGame';
 import type { Profile } from '../profile';
-import { rankOf } from '../profile';
+import { rankOf, topMisses } from '../profile';
 
-const MODES: Array<{ id: Mode; name: string; desc: string }> = [
+type PlayChoice = Mode | 'drill';
+
+const MODES: Array<{ id: PlayChoice; name: string; desc: string }> = [
   {
     id: 'practice',
     name: 'Practice',
@@ -19,11 +21,17 @@ const MODES: Array<{ id: Mode; name: string; desc: string }> = [
     name: 'Endless',
     desc: 'A 100-chip stack. One strategy mistake — or busting out — ends the run.',
   },
+  {
+    id: 'drill',
+    name: 'Drill',
+    desc: 'Rapid-fire reps of the exact hands you get wrong. No chips, pure decisions.',
+  },
 ];
 
 export function Menu({
   profile,
   onPlay,
+  onHistory,
   onStats,
   onChart,
   onRules,
@@ -31,7 +39,8 @@ export function Menu({
   onSupport,
 }: {
   profile: Profile;
-  onPlay: (mode: Mode) => void;
+  onPlay: (mode: PlayChoice) => void;
+  onHistory: () => void;
   onStats: () => void;
   onChart: () => void;
   onRules: () => void;
@@ -39,6 +48,7 @@ export function Menu({
   onSupport: () => void;
 }) {
   const rank = rankOf(profile);
+  const weakSpots = topMisses(profile).length;
   const lifetimeAcc =
     profile.lifetimeDecisions === 0
       ? null
@@ -85,6 +95,11 @@ export function Menu({
               {m.id === 'endless' && profile.bestEndless > 0 && (
                 <span className="mode-card__best">best streak: {profile.bestEndless}</span>
               )}
+              {m.id === 'drill' && weakSpots > 0 && (
+                <span className="mode-card__best mode-card__best--warn">
+                  {weakSpots} weak spot{weakSpots === 1 ? '' : 's'} to fix
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -98,6 +113,9 @@ export function Menu({
           </button>
           <button className="btn btn--ghost" onClick={onChart}>
             Strategy chart
+          </button>
+          <button className="btn btn--ghost" onClick={onHistory}>
+            History
           </button>
           <button className="btn btn--ghost" onClick={onStats}>
             Statistics
