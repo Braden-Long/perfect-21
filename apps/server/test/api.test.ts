@@ -143,3 +143,112 @@ describe('admin API', () => {
     expect(after.body.players).toBe(1);
   });
 });
+
+describe('accounts & recovery', () => {
+  let mailServer: Server;
+  let mailBase: string;
+  const outbox: Array<{ to: string; text: string }> = [];
+
+  beforeAll(async () => {
+    const app = createApp({
+      db: openDb(':memory:'),
+      publicUrl: 'https://p21.test',
+      sendMail: async (to, _subject, text) => {
+        outbox.push({ to, text });
+      },
+    });
+    await new Promise<void>((resolve) => {
+      mailServer = app.listen(0, resolve);
+    });
+    const addr = mailServer.address();
+    if (typeof addr === 'string' || !addr) throw new Error('no port');
+    mailBase = `http://127.0.0.1:${addr.port}`;
+  });
+
+  afterAll(() => new Promise<void>((resolve) => mailServer.close(() => resolve())));
+
+  async function mjson(method: string, path: string, body?: unknown) {
+    const res = await fetch(mailBase + path, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { status: res.status, body: (await res.json()) as any };
+  }
+
+  let id: string;
+  let secret: string;
+
+  it('advertises email support in health when a mailer is configured', async () => {
+    expect((await mjson('GET', '/api/health')).body.email).toBe(true);
+    // The main test server has no mailer: feature hidden, endpoint disabled.
+    expect((await json('GET', '/api/health')).body.email).toBe(false);
+    expect((await json('POST', '/api/recover/email', { email: 'a@b.co' })).status).toBe(503);
+  });
+
+  it('stores a profile snapshot on sync and returns it for id+secret recovery', async () => {
+    const joined = await mjson('POST', '/api/players', { name: 'Comeback Kid' });
+    id = joined.body.id;
+    secret = joined.body.secret;
+    const snapshot = JSON.stringify({ bankroll: 940, misses: { 'h16-10': { n: 2 } } });
+    const put = await mjson('PUT', `/api/players/${id}`, { secret, ...stats(), profile: snapshot });
+    expect(put.status).toBe(200);
+    // oversized/garbage snapshots are rejected
+    expect(
+      (await mjson('PUT', `/api/players/${id}`, { secret, ...stats(), profile: 'not json' })).status
+    ).toBe(400);
+
+    const rec = await mjson('POST', '/api/players/recover', { id, secret });
+    expect(rec.status).toBe(200);
+    expect(rec.body.name).toBe('Comeback Kid');
+    expect(rec.body.profile.bankroll).toBe(940);
+    expect((await mjson('POST', '/api/players/recover', { id, secret: 'wrong' })).status).toBe(403);
+  });
+
+  it('attaches an email with the secret only, unique per player', async () => {
+    expect(
+      (await mjson('PUT', `/api/players/${id}/email`, { secret: 'wrong', email: 'kid@x.co' })).status
+    ).toBe(403);
+    expect(
+      (await mjson('PUT', `/api/players/${id}/email`, { secret, email: 'not-an-email' })).status
+    ).toBe(400);
+    const ok = await mjson('PUT', `/api/players/${id}/email`, { secret, email: 'Kid@X.co' });
+    expect(ok.status).toBe(200);
+    expect(ok.body.email).toBe('kid@x.co'); // normalized
+
+    const other = await mjson('POST', '/api/players', { name: 'Copycat' });
+    expect(
+      (
+        await mjson('PUT', `/api/players/${other.body.id}/email`, {
+          secret: other.body.secret,
+          email: 'kid@x.co',
+        })
+      ).status
+    ).toBe(409);
+  });
+
+  it('sends a single-use magic link that restores the account', async () => {
+    // Unknown address: same response, no email — no enumeration.
+    expect((await mjson('POST', '/api/recover/email', { email: 'ghost@x.co' })).status).toBe(200);
+    expect(outbox).toHaveLength(0);
+
+    expect((await mjson('POST', '/api/recover/email', { email: 'kid@x.co' })).status).toBe(200);
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0].to).toBe('kid@x.co');
+    const token = /#recover=([0-9a-f]+)/.exec(outbox[0].text)?.[1];
+    expect(token).toBeTruthy();
+    expect(outbox[0].text).toContain('https://p21.test/#recover=');
+
+    expect((await mjson('POST', '/api/recover/claim', { token: 'f'.repeat(64) })).status).toBe(403);
+
+    const claim = await mjson('POST', '/api/recover/claim', { token });
+    expect(claim.status).toBe(200);
+    expect(claim.body.id).toBe(id);
+    expect(claim.body.secret).toBe(secret);
+    expect(claim.body.name).toBe('Comeback Kid');
+    expect(claim.body.profile.bankroll).toBe(940);
+
+    // Single use: the same link never works twice.
+    expect((await mjson('POST', '/api/recover/claim', { token })).status).toBe(403);
+  });
+});

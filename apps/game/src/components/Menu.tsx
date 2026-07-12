@@ -124,7 +124,13 @@ export function Menu({
             ♥ Support
           </button>
         </div>
-        {profile.player && <p className="menu__signed">playing as {profile.player.name}</p>}
+        {profile.player ? (
+          <p className="menu__signed">playing as {profile.player.name}</p>
+        ) : (
+          <p className="menu__signed">
+            progress lives in this browser — claim a name on the leaderboard to back it up
+          </p>
+        )}
         <p className="menu__footer">free forever · no ads · play chips only · tips welcome</p>
       </div>
     </div>

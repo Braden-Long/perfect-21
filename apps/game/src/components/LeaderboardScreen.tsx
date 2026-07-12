@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { Leaderboard } from '../api';
-import { apiAvailable, fetchLeaderboard, joinLeaderboard, syncStats } from '../api';
+import {
+  apiAvailable,
+  attachEmail,
+  fetchLeaderboard,
+  joinLeaderboard,
+  recoverAccount,
+  requestEmailRecovery,
+  serverFeatures,
+  syncStats,
+} from '../api';
 import type { Profile } from '../profile';
-import { saveProfile } from '../profile';
+import { recoveryCode, saveProfile } from '../profile';
 
 function TierBadge({ tier }: { tier: { name: string; color: string } | null }) {
   if (!tier) return <span className="board-tier board-tier--none">—</span>;
@@ -36,8 +45,9 @@ function JoinForm({ profile, onJoined }: { profile: Profile; onJoined: () => voi
   return (
     <div className="join">
       <p className="rules-note">
-        Claim a name to appear on the global board. Your stats sync automatically as you play —
-        no account, no email, the credential lives in this browser.
+        Claim a name to appear on the global board — no signup, you're playing in seconds. Your
+        stats sync automatically, and you can attach an email afterwards so your progress
+        survives anything.
       </p>
       <div className="join__row">
         <input
@@ -57,17 +67,167 @@ function JoinForm({ profile, onJoined }: { profile: Profile; onJoined: () => voi
   );
 }
 
+/** Attach/change the recovery email — the optional "account". */
+function AccountSection({ profile, emailEnabled }: { profile: Profile; emailEnabled: boolean }) {
+  const [email, setEmail] = useState(profile.recoveryEmail ?? '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const save = async () => {
+    setBusy(true);
+    setMsg(null);
+    const res = await attachEmail(profile, email.trim().toLowerCase());
+    setBusy(false);
+    if (!res.ok) {
+      setMsg({ ok: false, text: res.error });
+      return;
+    }
+    profile.recoveryEmail = res.email ?? undefined;
+    saveProfile(profile);
+    setMsg({
+      ok: true,
+      text: 'Saved. If you ever lose this browser, recover everything with a link to that email.',
+    });
+  };
+
+  if (!profile.player) return null;
+  return (
+    <div className="join">
+      <p className="rules-note">
+        Playing as <b>{profile.player.name}</b> — stats sync automatically after each hand.
+      </p>
+      {emailEnabled && (
+        <>
+          <div className="join__row">
+            <input
+              className="join__input"
+              type="email"
+              placeholder="Email for account recovery (optional)"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !busy && save()}
+            />
+            <button
+              className="btn btn--deal"
+              disabled={busy || !email.includes('@')}
+              onClick={save}
+            >
+              {busy ? 'Saving…' : profile.recoveryEmail ? 'Update' : 'Save'}
+            </button>
+          </div>
+          {msg && <p className={msg.ok ? 'rules-note' : 'join__error'}>{msg.text}</p>}
+          {!profile.recoveryEmail && !msg && (
+            <p className="rules-note">
+              Add an email and clearing this browser can't erase your progress — recovery is a
+              magic link, no password to remember.
+            </p>
+          )}
+        </>
+      )}
+      <details className="recovery-details">
+        <summary>Advanced: offline recovery code</summary>
+        <p className="rules-note">
+          This code restores your account on any device even without email. Treat it like a
+          password:
+        </p>
+        <div className="join__row">
+          <code className="recovery-code">{recoveryCode(profile.player)}</code>
+          <button
+            className="btn btn--ghost"
+            onClick={() => void navigator.clipboard?.writeText(recoveryCode(profile.player!))}
+          >
+            Copy
+          </button>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+/** Recovery entry points for a fresh browser: email link or pasted code. */
+function RestoreSection({ emailEnabled }: { emailEnabled: boolean }) {
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const sendLink = async () => {
+    setBusy(true);
+    setMsg(null);
+    const res = await requestEmailRecovery(email.trim());
+    setBusy(false);
+    setMsg(
+      res.ok
+        ? {
+            ok: true,
+            text: 'If that address is linked to a player, a recovery link is on its way. It works once, for 15 minutes.',
+          }
+        : { ok: false, text: res.error }
+    );
+  };
+
+  const useCode = async () => {
+    setBusy(true);
+    setMsg(null);
+    const res = await recoverAccount(code);
+    setBusy(false);
+    if (!res.ok) {
+      setMsg({ ok: false, text: res.error });
+      return;
+    }
+    // Everything is written to localStorage; reload so all screens pick it up.
+    location.hash = '';
+    location.reload();
+  };
+
+  return (
+    <details className="recovery-details">
+      <summary>Played before? Restore your progress</summary>
+      {emailEnabled && (
+        <div className="join__row">
+          <input
+            className="join__input"
+            type="email"
+            placeholder="Your recovery email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !busy && sendLink()}
+          />
+          <button className="btn btn--deal" disabled={busy || !email.includes('@')} onClick={sendLink}>
+            Email me a link
+          </button>
+        </div>
+      )}
+      <div className="join__row">
+        <input
+          className="join__input"
+          placeholder="…or paste a recovery code (p21.…)"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !busy && useCode()}
+        />
+        <button className="btn btn--ghost" disabled={busy || !code.trim()} onClick={useCode}>
+          Restore
+        </button>
+      </div>
+      {msg && <p className={msg.ok ? 'rules-note' : 'join__error'}>{msg.text}</p>}
+    </details>
+  );
+}
+
 export function LeaderboardScreen({ profile, onBack }: { profile: Profile; onBack: () => void }) {
   const [board, setBoard] = useState<Leaderboard | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
+  const [emailEnabled, setEmailEnabled] = useState(false);
   const [joinedTick, setJoinedTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setState('loading');
-    fetchLeaderboard().then((b) => {
+    Promise.all([fetchLeaderboard(), serverFeatures()]).then(([b, features]) => {
       if (cancelled) return;
       setBoard(b);
+      setEmailEnabled(features?.email === true);
       setState(b ? 'ready' : 'offline');
     });
     return () => {
@@ -92,12 +252,13 @@ export function LeaderboardScreen({ profile, onBack }: { profile: Profile; onBac
 
         {state === 'ready' && board && (
           <>
-            {!profile.player && <JoinForm profile={profile} onJoined={() => setJoinedTick((t) => t + 1)} />}
-            {profile.player && (
-              <p className="rules-note">
-                Playing as <b>{profile.player.name}</b> — stats sync automatically after each hand.
-              </p>
+            {!profile.player && (
+              <>
+                <JoinForm profile={profile} onJoined={() => setJoinedTick((t) => t + 1)} />
+                <RestoreSection emailEnabled={emailEnabled} />
+              </>
             )}
+            {profile.player && <AccountSection profile={profile} emailEnabled={emailEnabled} />}
 
             {board.players.length === 0 ? (
               <p className="rules-note">

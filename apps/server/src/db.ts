@@ -18,6 +18,10 @@ export interface PlayerRow {
   banned: number;
   created_at: number;
   updated_at: number;
+  /** Opaque JSON snapshot of the client profile, for cross-device recovery. */
+  profile: string;
+  /** Optional email for magic-link recovery. Never shown publicly. */
+  email: string | null;
 }
 
 export function openDb(path: string): DatabaseSync {
@@ -38,7 +42,29 @@ export function openDb(path: string): DatabaseSync {
       rules_key TEXT NOT NULL DEFAULT '',
       banned INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      updated_at INTEGER NOT NULL,
+      profile TEXT NOT NULL DEFAULT '',
+      email TEXT
+    );
+  `);
+  // Migrations for databases created before these columns existed (must run
+  // before anything below references the new columns).
+  for (const stmt of [
+    `ALTER TABLE players ADD COLUMN profile TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE players ADD COLUMN email TEXT`,
+  ]) {
+    try {
+      db.exec(stmt);
+    } catch {
+      // column already exists
+    }
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS players_email ON players (email) WHERE email IS NOT NULL;
+    CREATE TABLE IF NOT EXISTS login_tokens (
+      token_hash TEXT PRIMARY KEY,
+      player_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL
     );
   `);
   return db;

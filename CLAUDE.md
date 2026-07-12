@@ -8,7 +8,8 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
 ## Commands
 - `npm test` — vitest (engine math + server API + jsdom UI smoke tests)
 - `npm run dev` — Vite dev server for the game client (proxies `/api` → :8721)
-- `npm run server` — API/leaderboard server (env: `PORT`, `DB_PATH`, `ADMIN_TOKEN`)
+- `npm run server` — API/leaderboard server (env: `PORT`, `DB_PATH`, `ADMIN_TOKEN`;
+  email recovery needs `SMTP_URL` + `MAIL_FROM` + `PUBLIC_URL`, hidden otherwise)
 - `npm run build` — typecheck + production build of the client
 - `npm start` — production: build client + serve site/API from apps/server
 - `npm run desktop` — build client, open Electron shell (`--smoke` flag loads and exits)

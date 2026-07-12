@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -11,12 +11,41 @@ import type { PlayerRow } from './db';
 const NAME_RE = /^[A-Za-z0-9 _.\-]{3,20}$/;
 const RESERVED = new Set(['admin', 'moderator', 'system', 'dealer', 'perfect21', 'perfect 21']);
 const ROLLING_CAP = 200;
+/** Client profile snapshots are opaque, but bounded and must parse as a JSON object. */
+const PROFILE_SNAPSHOT_CAP = 24_000;
+
+function validSnapshot(raw: unknown): raw is string {
+  if (typeof raw !== 'string' || raw.length > PROFILE_SNAPSHOT_CAP) return false;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
 
 export interface AppOptions {
   db: DatabaseSync;
   adminToken?: string;
   /** Absolute path to the built game client; omit to skip static serving. */
   staticDir?: string;
+  /** Transactional mail sender; omit to disable email recovery entirely. */
+  sendMail?: (to: string, subject: string, text: string) => Promise<void>;
+  /** Origin used in recovery links, e.g. https://perfect21.example. */
+  publicUrl?: string;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TOKEN_TTL_MS = 15 * 60_000;
+
+function cleanEmail(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const email = raw.trim().toLowerCase();
+  return email.length <= 254 && EMAIL_RE.test(email) ? email : null;
+}
+
+function hashToken(raw: string): string {
+  return createHash('sha256').update(raw).digest('hex');
 }
 
 function cleanName(raw: unknown): string | null {
@@ -55,7 +84,7 @@ function publicView(row: PlayerRow) {
   };
 }
 
-export function createApp({ db, adminToken, staticDir }: AppOptions) {
+export function createApp({ db, adminToken, staticDir, sendMail, publicUrl }: AppOptions) {
   const app = express();
   app.use(express.json({ limit: '32kb' }));
 
@@ -83,7 +112,20 @@ export function createApp({ db, adminToken, staticDir }: AppOptions) {
     next();
   };
 
-  app.get('/api/health', (_req, res) => void res.json({ ok: true }));
+  // Email recovery is much more abusable than stat writes: cap sends hard,
+  // per IP and per address, and never reveal whether an address is registered.
+  const mailSends = new Map<string, { count: number; resetAt: number }>();
+  const mailAllowed = (key: string, max: number): boolean => {
+    const now = Date.now();
+    const slot = mailSends.get(key);
+    if (!slot || slot.resetAt < now) {
+      mailSends.set(key, { count: 1, resetAt: now + 3_600_000 });
+      return true;
+    }
+    return ++slot.count <= max;
+  };
+
+  app.get('/api/health', (_req, res) => void res.json({ ok: true, email: Boolean(sendMail) }));
 
   /** Join the leaderboard: returns the credentials the client stores locally. */
   app.post('/api/players', throttle, (req, res) => {
@@ -127,14 +169,15 @@ export function createApp({ db, adminToken, staticDir }: AppOptions) {
       !Array.isArray(rolling) ||
       rolling.length > ROLLING_CAP ||
       !rolling.every((x: unknown) => typeof x === 'boolean') ||
-      typeof (b.rulesKey ?? '') !== 'string'
+      typeof (b.rulesKey ?? '') !== 'string' ||
+      (b.profile !== undefined && !validSnapshot(b.profile))
     ) {
       return void res.status(400).json({ error: 'invalid stats payload' });
     }
 
     db.prepare(
       `UPDATE players SET decisions=?, correct=?, rolling=?, best_streak=?, rounds=?, net=?,
-         ev_loss=?, rules_key=?, updated_at=? WHERE id=?`
+         ev_loss=?, rules_key=?, profile=?, updated_at=? WHERE id=?`
     ).run(
       b.decisions,
       b.correct,
@@ -144,10 +187,160 @@ export function createApp({ db, adminToken, staticDir }: AppOptions) {
       b.net,
       b.evLoss,
       String(b.rulesKey ?? '').slice(0, 60),
+      typeof b.profile === 'string' ? b.profile : row.profile,
       Date.now(),
       row.id
     );
     res.json({ ok: true });
+  });
+
+  /**
+   * Cross-device recovery: the id+secret pair (shown to players as a recovery
+   * code) returns the account and its last-synced profile snapshot. POST so
+   * the secret stays out of URLs and logs.
+   */
+  app.post('/api/players/recover', throttle, (req, res) => {
+    const id = req.body?.id;
+    const secret = req.body?.secret;
+    if (typeof id !== 'string' || typeof secret !== 'string') {
+      return void res.status(400).json({ error: 'invalid recovery code' });
+    }
+    const row = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as PlayerRow | undefined;
+    if (!row || !safeEqual(secret, row.secret)) {
+      return void res.status(403).json({ error: 'unknown player or bad recovery code' });
+    }
+    if (row.banned) return void res.status(403).json({ error: 'account banned' });
+    let snapshot: unknown = null;
+    try {
+      snapshot = row.profile ? JSON.parse(row.profile) : null;
+    } catch {
+      snapshot = null;
+    }
+    res.json({
+      id: row.id,
+      name: row.name,
+      profile: snapshot,
+      // Fallback for accounts synced before profile snapshots existed.
+      stats: {
+        decisions: row.decisions,
+        correct: row.correct,
+        rolling: JSON.parse(row.rolling) as boolean[],
+        bestStreak: row.best_streak,
+        rounds: row.rounds,
+        net: row.net,
+        evLoss: row.ev_loss,
+      },
+    });
+  });
+
+  // ---- optional email account (magic links, no passwords) ----
+
+  /** Attach (or detach with email: null) the recovery email. Requires the secret. */
+  app.put('/api/players/:id/email', throttle, (req, res) => {
+    const row = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id) as
+      | PlayerRow
+      | undefined;
+    const secret = req.body?.secret;
+    if (!row || typeof secret !== 'string' || !safeEqual(secret, row.secret)) {
+      return void res.status(403).json({ error: 'unknown player or bad secret' });
+    }
+    if (row.banned) return void res.status(403).json({ error: 'account banned' });
+    if (req.body?.email === null) {
+      db.prepare('UPDATE players SET email = NULL WHERE id = ?').run(row.id);
+      return void res.json({ ok: true, email: null });
+    }
+    const email = cleanEmail(req.body?.email);
+    if (!email) return void res.status(400).json({ error: 'invalid email address' });
+    const taken = db
+      .prepare('SELECT 1 FROM players WHERE email = ? AND id != ?')
+      .get(email, row.id);
+    if (taken) {
+      return void res.status(409).json({ error: 'that email is linked to another player' });
+    }
+    db.prepare('UPDATE players SET email = ? WHERE id = ?').run(email, row.id);
+    res.json({ ok: true, email });
+  });
+
+  /** Send a magic recovery link. Always claims success — no address enumeration. */
+  app.post('/api/recover/email', throttle, (req, res) => {
+    if (!sendMail) {
+      return void res
+        .status(503)
+        .json({ error: 'email recovery is not configured on this server' });
+    }
+    const email = cleanEmail(req.body?.email);
+    if (!email) return void res.status(400).json({ error: 'invalid email address' });
+    if (!mailAllowed(`ip:${req.ip ?? 'unknown'}`, 6) || !mailAllowed(`to:${email}`, 3)) {
+      return void res.status(429).json({ error: 'too many recovery emails — try again later' });
+    }
+    const row = db.prepare('SELECT * FROM players WHERE email = ? AND banned = 0').get(email) as
+      | PlayerRow
+      | undefined;
+    const now = Date.now();
+    db.prepare('DELETE FROM login_tokens WHERE expires_at < ?').run(now);
+    if (row) {
+      const raw = randomBytes(32).toString('hex');
+      db.prepare(
+        'INSERT INTO login_tokens (token_hash, player_id, expires_at) VALUES (?, ?, ?)'
+      ).run(hashToken(raw), row.id, now + TOKEN_TTL_MS);
+      const link = `${(publicUrl ?? '').replace(/\/$/, '')}/#recover=${raw}`;
+      void sendMail(
+        email,
+        'Restore your Perfect 21 progress',
+        `Someone asked to restore the Perfect 21 progress linked to this email ` +
+          `(player "${row.name}").\n\nOpen this link on the device you want to play on:\n\n` +
+          `${link}\n\nThe link works once and expires in 15 minutes. ` +
+          `If this wasn't you, ignore this email — nothing changes.`
+      ).catch(() => {
+        // Sending is best-effort; the client message stays the same either way.
+      });
+    }
+    res.json({ ok: true });
+  });
+
+  /** Trade a magic-link token for the account and its profile snapshot. */
+  app.post('/api/recover/claim', throttle, (req, res) => {
+    const token = req.body?.token;
+    if (typeof token !== 'string' || token.length < 16 || token.length > 128) {
+      return void res.status(400).json({ error: 'invalid recovery link' });
+    }
+    const now = Date.now();
+    const hash = hashToken(token);
+    const entry = db
+      .prepare('SELECT * FROM login_tokens WHERE token_hash = ? AND expires_at >= ?')
+      .get(hash, now) as { player_id: string } | undefined;
+    // Single use: gone whether or not the claim succeeds further down.
+    db.prepare('DELETE FROM login_tokens WHERE token_hash = ?').run(hash);
+    const row = entry
+      ? (db.prepare('SELECT * FROM players WHERE id = ?').get(entry.player_id) as
+          | PlayerRow
+          | undefined)
+      : undefined;
+    if (!row || row.banned) {
+      return void res.status(403).json({ error: 'this recovery link is invalid or expired' });
+    }
+    let snapshot: unknown = null;
+    try {
+      snapshot = row.profile ? JSON.parse(row.profile) : null;
+    } catch {
+      snapshot = null;
+    }
+    res.json({
+      id: row.id,
+      secret: row.secret,
+      name: row.name,
+      email: row.email,
+      profile: snapshot,
+      stats: {
+        decisions: row.decisions,
+        correct: row.correct,
+        rolling: JSON.parse(row.rolling) as boolean[],
+        bestStreak: row.best_streak,
+        rounds: row.rounds,
+        net: row.net,
+        evLoss: row.ev_loss,
+      },
+    });
   });
 
   app.get('/api/leaderboard', (_req, res) => {
@@ -222,6 +415,7 @@ export function createApp({ db, adminToken, staticDir }: AppOptions) {
         banned: !!r.banned,
         rulesKey: r.rules_key,
         createdAt: r.created_at,
+        email: r.email ?? null,
       })),
     });
   });

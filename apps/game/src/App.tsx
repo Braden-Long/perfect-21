@@ -10,6 +10,7 @@ import { SupportDialog } from './components/SupportDialog';
 import { AdminScreen } from './components/AdminScreen';
 import { DrillScreen } from './components/DrillScreen';
 import { HistoryScreen } from './components/HistoryScreen';
+import { RecoverScreen } from './components/RecoverScreen';
 import { loadProfile, saveProfile } from './profile';
 import { useGame } from './useGame';
 import type { Mode } from './useGame';
@@ -22,7 +23,8 @@ type Screen =
   | { name: 'stats' }
   | { name: 'chart' }
   | { name: 'board' }
-  | { name: 'admin' };
+  | { name: 'admin' }
+  | { name: 'recover'; token: string };
 
 const MODE_HASHES: Record<string, Mode> = {
   '#practice': 'practice',
@@ -33,6 +35,7 @@ const MODE_HASHES: Record<string, Mode> = {
 function screenForHash(hash: string): Screen | null {
   if (hash === '#admin') return { name: 'admin' };
   if (hash === '#drill') return { name: 'drill' };
+  if (hash.startsWith('#recover=')) return { name: 'recover', token: hash.slice('#recover='.length) };
   const mode = MODE_HASHES[hash];
   return mode ? { name: 'game', mode } : null;
 }
@@ -101,6 +104,8 @@ export default function App() {
       return <LeaderboardScreen profile={profile} onBack={backToMenu} />;
     case 'admin':
       return <AdminScreen onBack={backToMenu} />;
+    case 'recover':
+      return <RecoverScreen token={screen.token} onDone={backToMenu} />;
     case 'menu':
       return (
         <>

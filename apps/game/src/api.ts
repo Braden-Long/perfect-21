@@ -1,6 +1,7 @@
 import { rulesKey } from '@perfect21/engine';
 import type { RankTier } from '@perfect21/engine';
-import type { Profile } from './profile';
+import type { PlayerCred, Profile } from './profile';
+import { parseRecoveryCode, profileSnapshot, restoreProfile } from './profile';
 
 /**
  * Client for the Perfect 21 server. Everything degrades gracefully: when the
@@ -49,6 +50,77 @@ export async function fetchLeaderboard(): Promise<Leaderboard | null> {
   return res?.status === 200 ? res.body : null;
 }
 
+/** Which optional server features are live (email recovery hides itself when unconfigured). */
+export async function serverFeatures(): Promise<{ email: boolean } | null> {
+  const res = await request<{ ok: boolean; email?: boolean }>('/api/health');
+  return res?.status === 200 ? { email: res.body.email === true } : null;
+}
+
+/** Attach a recovery email to the account (or detach with null). */
+export async function attachEmail(
+  profile: Profile,
+  email: string | null
+): Promise<{ ok: true; email: string | null } | { ok: false; error: string }> {
+  if (!profile.player) return { ok: false, error: 'Claim a name first.' };
+  const res = await request<{ ok?: boolean; email?: string | null; error?: string }>(
+    `/api/players/${profile.player.id}/email`,
+    { method: 'PUT', body: JSON.stringify({ secret: profile.player.secret, email }) }
+  );
+  if (!res) return { ok: false, error: 'Server unreachable — try again later.' };
+  if (res.status !== 200) return { ok: false, error: res.body.error ?? 'Could not save email.' };
+  return { ok: true, email: res.body.email ?? null };
+}
+
+/** Ask for a magic recovery link. Success only means "if registered, it was sent". */
+export async function requestEmailRecovery(
+  email: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await request<{ ok?: boolean; error?: string }>('/api/recover/email', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+  if (!res) return { ok: false, error: 'Server unreachable — try again later.' };
+  if (res.status !== 200) return { ok: false, error: res.body.error ?? 'Could not send the link.' };
+  return { ok: true };
+}
+
+/** Trade a magic-link token (from the #recover= URL) for the restored profile. */
+export async function claimRecovery(
+  token: string
+): Promise<{ ok: true; profile: Profile } | { ok: false; error: string }> {
+  const res = await request<{
+    id: string;
+    secret: string;
+    name: string;
+    profile: unknown;
+    stats: {
+      decisions: number;
+      correct: number;
+      rolling: boolean[];
+      bestStreak: number;
+      rounds: number;
+      net: number;
+      evLoss: number;
+    };
+    error?: string;
+  }>('/api/recover/claim', { method: 'POST', body: JSON.stringify({ token }) });
+  if (!res) return { ok: false, error: 'Server unreachable — try again later.' };
+  if (res.status !== 200) {
+    return { ok: false, error: res.body.error ?? 'This recovery link is invalid or expired.' };
+  }
+  const player: PlayerCred = { id: res.body.id, secret: res.body.secret, name: res.body.name };
+  const snapshot = res.body.profile ?? {
+    lifetimeDecisions: res.body.stats.decisions,
+    lifetimeCorrect: res.body.stats.correct,
+    history: res.body.stats.rolling,
+    bestEndless: res.body.stats.bestStreak,
+    totalRounds: res.body.stats.rounds,
+    totalNet: res.body.stats.net,
+    totalEVLoss: res.body.stats.evLoss,
+  };
+  return { ok: true, profile: restoreProfile(snapshot, player) };
+}
+
 export async function joinLeaderboard(
   name: string
 ): Promise<{ ok: true; id: string; secret: string; name: string } | { ok: false; error: string }> {
@@ -75,9 +147,50 @@ export async function syncStats(profile: Profile): Promise<boolean> {
       net: profile.totalNet,
       evLoss: profile.totalEVLoss,
       rulesKey: rulesKey(profile.rules),
+      // Full backup: whoever holds the recovery code can restore all of this.
+      profile: JSON.stringify(profileSnapshot(profile)),
     }),
   });
   return res?.status === 200;
+}
+
+/** Restore an account from a recovery code. Overwrites the local profile on success. */
+export async function recoverAccount(
+  code: string
+): Promise<{ ok: true; profile: Profile } | { ok: false; error: string }> {
+  const cred = parseRecoveryCode(code);
+  if (!cred) return { ok: false, error: 'That doesn’t look like a recovery code.' };
+  const res = await request<{
+    id: string;
+    name: string;
+    profile: unknown;
+    stats: {
+      decisions: number;
+      correct: number;
+      rolling: boolean[];
+      bestStreak: number;
+      rounds: number;
+      net: number;
+      evLoss: number;
+    };
+    error?: string;
+  }>('/api/players/recover', { method: 'POST', body: JSON.stringify(cred) });
+  if (!res) return { ok: false, error: 'Server unreachable — try again later.' };
+  if (res.status !== 200) return { ok: false, error: res.body.error ?? 'Recovery failed.' };
+  const player: PlayerCred = { id: res.body.id, secret: cred.secret, name: res.body.name };
+  const snapshot =
+    res.body.profile ??
+    // Accounts synced before snapshots existed: rebuild what the server knows.
+    {
+      lifetimeDecisions: res.body.stats.decisions,
+      lifetimeCorrect: res.body.stats.correct,
+      history: res.body.stats.rolling,
+      bestEndless: res.body.stats.bestStreak,
+      totalRounds: res.body.stats.rounds,
+      totalNet: res.body.stats.net,
+      totalEVLoss: res.body.stats.evLoss,
+    };
+  return { ok: true, profile: restoreProfile(snapshot, player) };
 }
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;

@@ -38,9 +38,14 @@ were actually worth.
   your expected RTP (theory minus the EV your mistakes gave away), and deviation-from-optimal %.
 - **Persistent rank** from your rolling decision accuracy: Bronze → Silver → Gold → Platinum →
   Diamond → **Perfect 21** (a full 200-decision window without a single miss).
-- **Global leaderboard**: claim a display name (no account, no email — a credential stays in
-  your browser) and your rank, rolling accuracy, and best endless streak sync automatically.
-  Fully optional; the game works offline/statically without it.
+- **Global leaderboard**: claim a display name — no signup wall, you're playing in seconds —
+  and your rank, rolling accuracy, and best endless streak sync automatically. Fully
+  optional; the game works offline/statically without it.
+- **Optional account via email magic links (no passwords)**: attach an email to your name and
+  your entire profile (bankroll, rank window, mistake memory) is recoverable on any device —
+  clearing the browser can't erase you. Recovery links are single-use, expire in 15 minutes,
+  and are heavily rate-limited; the server never stores a password, only the email. A copyable
+  offline recovery code covers self-hosted setups without SMTP.
 - **Tip-only monetization**: no ads, no paywall, no wagering. A Support dialog shows the
   site owner's crypto tip jars (configured in `apps/game/src/config.ts`; hidden until set).
 
@@ -87,6 +92,18 @@ ADMIN_TOKEN=pick-something-long PORT=8721 npm start
 docker build -t perfect21 . && docker run -p 8721:8721 -e ADMIN_TOKEN=... -v p21data:/data perfect21
 ```
 
+To enable email account recovery, add SMTP credentials (any transactional provider — Resend,
+Postmark, SES, Mailgun — hands you these) and the public origin used in links:
+
+```bash
+SMTP_URL="smtps://user:pass@smtp.example.com:465" \
+MAIL_FROM="Perfect 21 <no-reply@your-domain>" \
+PUBLIC_URL="https://your-domain" \
+ADMIN_TOKEN=... npm start
+```
+
+Leave them unset and the email UI hides itself — everything else works.
+
 - **Admin panel**: visit `https://your-site/#admin` and enter the `ADMIN_TOKEN`. Overview
   stats, player list, ban/unban, delete. Admin routes are disabled entirely if the env var
   isn't set.
@@ -120,11 +137,13 @@ not anticheat-grade; the admin panel exists to prune anything that looks wrong.
 
 ### Trust & privacy model
 
-- No accounts, no email, no passwords: joining the leaderboard mints a random id + secret
-  stored in your browser's localStorage. Lose the browser profile, lose the name — acceptable
-  for a tip-jar-funded trainer.
-- The server stores only: display name, decision/win counters, the rolling 200-decision
-  correctness window, and a rules key. No IPs are persisted.
+- No passwords, ever: joining the leaderboard mints a random id + secret stored in your
+  browser's localStorage; optionally attaching an email upgrades that to a recoverable
+  account via single-use magic links. Email is the only personal datum stored, it's used
+  solely for recovery, and it's never shown publicly.
+- The server stores: display name, decision/win counters, the rolling 200-decision
+  correctness window, a rules key, an opaque profile snapshot (for recovery), and the
+  optional email. No IPs are persisted.
 
 ### How strategy derivation works
 
@@ -146,7 +165,7 @@ subtracted from theory.
 
 - **Card counting mode** (planned next): running/true count drills, deviation indices (Illustrious 18).
 - **Server-side decision verification**: replay submitted hands through the engine for
-  anticheat-grade leaderboards; cross-device identity via export/import of the local credential.
+  anticheat-grade leaderboards.
 - Insurance decisions (grade "never take insurance" — trivially correct but worth teaching).
 - Multi-seat play and richer table presentation.
 - **Steam packaging** (optional, shell already works): app ID, steamworks.js achievements,

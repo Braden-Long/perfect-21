@@ -1769,6 +1769,42 @@ a {
   color: var(--gold);
 }
 
+/* ---------- account recovery ---------- */
+
+.recovery-details {
+  max-width: 520px;
+  margin: 0.6rem auto 1rem;
+  text-align: left;
+}
+
+.recovery-details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 0.3rem 0;
+}
+
+.recovery-details summary:hover {
+  color: var(--gold);
+}
+
+.recovery-details .join__row {
+  margin-top: 0.6rem;
+}
+
+.recovery-code {
+  flex: 1;
+  font-size: 0.68rem;
+  word-break: break-all;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(216, 179, 108, 0.35);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  user-select: all;
+}
+
 .menu__signed {
   margin-top: 1.2rem;
   font-size: 0.78rem;

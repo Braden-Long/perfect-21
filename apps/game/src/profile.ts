@@ -55,6 +55,8 @@ export interface Profile {
   misses: Record<string, MissStat>;
   /** Recent graded decisions, oldest first. */
   handLog: HandLogEntry[];
+  /** Client-side display hint only; the server holds the authoritative email. */
+  recoveryEmail?: string;
 }
 
 function fresh(): Profile {
@@ -144,4 +146,41 @@ export function topMisses(p: Profile): MissStat[] {
 
 export function rankOf(p: Profile): RankResult {
   return computeRank(p.history);
+}
+
+// ---- cross-device recovery ----
+// Claiming a leaderboard name IS the account: the id+secret pair, formatted
+// as a recovery code, restores everything on any device. No email, no password.
+
+export interface PlayerCred {
+  id: string;
+  secret: string;
+  name: string;
+}
+
+export function recoveryCode(player: PlayerCred): string {
+  return `p21.${player.id}.${player.secret}`;
+}
+
+export function parseRecoveryCode(code: string): { id: string; secret: string } | null {
+  const parts = code.trim().split('.');
+  if (parts.length !== 3 || parts[0] !== 'p21' || !parts[1] || !parts[2]) return null;
+  return { id: parts[1], secret: parts[2] };
+}
+
+/** Everything worth backing up, trimmed to keep the sync payload small. */
+export function profileSnapshot(p: Profile): Omit<Profile, 'player'> {
+  const { player: _player, ...rest } = p;
+  return { ...rest, history: p.history.slice(-200), handLog: p.handLog.slice(-60) };
+}
+
+/** Rebuild and persist a profile from a recovered server snapshot. */
+export function restoreProfile(snapshot: unknown, player: PlayerCred): Profile {
+  const partial =
+    typeof snapshot === 'object' && snapshot !== null && !Array.isArray(snapshot)
+      ? (snapshot as Partial<Profile>)
+      : {};
+  const p: Profile = { ...fresh(), ...partial, player };
+  saveProfile(p);
+  return p;
 }
