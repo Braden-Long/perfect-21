@@ -293,23 +293,44 @@ export function LeaderboardScreen({ profile, onBack }: { profile: Profile; onBac
               </table>
             )}
 
-            {board.streaks.length > 0 && (
-              <>
-                <h3 className="board-subtitle">Endless streaks</h3>
-                <table className="board board--narrow">
-                  <tbody>
-                    {board.streaks.map((s, i) => (
-                      <tr key={s.name} className={s.name === profile.player?.name ? 'board__me' : ''}>
-                        <td>{i + 1}</td>
-                        <td className="board__name">{s.name}</td>
-                        <td>
-                          <b>{s.bestStreak}</b> in a row
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
+            <h3 className="board-subtitle">Endless — longest runs</h3>
+            <p className="rules-note">
+              A different game from accuracy rank: your score is the most correct decisions
+              you've survived in a single 100-chip endless run.
+              {profile.bestEndless > 0 && (
+                <>
+                  {' '}
+                  Your best: <b>{profile.bestEndless}</b>.
+                </>
+              )}
+            </p>
+            {board.streaks.length === 0 ? (
+              <p className="rules-note">No endless runs on the board yet — set the bar.</p>
+            ) : (
+              <table className="board board--narrow">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th className="board__name">Player</th>
+                    <th>Longest run</th>
+                    <th>Rank</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {board.streaks.map((s, i) => (
+                    <tr key={s.name} className={s.name === profile.player?.name ? 'board__me' : ''}>
+                      <td>{i + 1}</td>
+                      <td className="board__name">{s.name}</td>
+                      <td>
+                        <b>{s.bestStreak}</b> decisions
+                      </td>
+                      <td>
+                        <TierBadge tier={s.tier} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </>
         )}

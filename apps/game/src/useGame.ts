@@ -11,6 +11,7 @@ import type { Action, CellEVs, Recommendation, Strategy } from '@perfect21/engin
 import type { Profile } from './profile';
 import { STARTING_BANKROLL, logDecision, recordDecision, saveProfile } from './profile';
 import { scheduleSync } from './api';
+import { play } from './sound';
 
 export type Mode = 'practice' | 'competitive' | 'endless';
 export type TablePhase = 'betting' | 'playing';
@@ -140,6 +141,8 @@ export function useGame(profile: Profile, mode: Mode): Game {
       // Re-stage last bet for a one-click rebet, clamped to what's left.
       setChipStack(unitBet >= 1 && unitBet <= roll ? [unitBet] : []);
     }
+    // Payout sound lands after the verdict sound has had its say.
+    play(roll < 1 ? 'bust' : summary.net > 0 ? 'win' : summary.net === 0 ? 'push' : 'lose', 0.45);
     saveProfile(profile);
     scheduleSync(profile);
   }, [mode, profile, setRoll]);
@@ -151,6 +154,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     if (!strategy || !shoe || endlessOver || tablePhase !== 'betting') return;
     if (stake < 1 || stake > bankrollRef.current) return;
     betRef.current = stake;
+    play('deal');
     setRoll(bankrollRef.current - stake);
     setTotalPlay((t) => t + stake);
     setLastNet(null);
@@ -247,6 +251,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
         explanation,
         evs: rec.evs,
       });
+      play(correct ? 'correct' : 'incorrect');
       if (correct) {
         streakRef.current++;
       } else if (mode === 'endless') {
@@ -257,6 +262,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
         streakRef.current = 0;
       }
       if (chosen === 'double' || chosen === 'split') {
+        play('chip', 0.1);
         setRoll(bankrollRef.current - betRef.current);
         setTotalPlay((t) => t + betRef.current);
       }
@@ -274,19 +280,19 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const addChip = useCallback(
     (v: number) => {
       if (tablePhase !== 'betting' || endlessOver) return;
-      setChipStack((stack) => {
-        const total = stack.reduce((s, x) => s + x, 0);
-        if (total + v > bankrollRef.current || total + v > TABLE_MAX_BET) return stack;
-        return [...stack, v];
-      });
+      const total = chipStack.reduce((s, x) => s + x, 0);
+      if (total + v > bankrollRef.current || total + v > TABLE_MAX_BET) return;
+      play('chip');
+      setChipStack([...chipStack, v]);
     },
-    [endlessOver, tablePhase]
+    [chipStack, endlessOver, tablePhase]
   );
 
   const undoChip = useCallback(() => {
-    if (tablePhase !== 'betting') return;
-    setChipStack((stack) => stack.slice(0, -1));
-  }, [tablePhase]);
+    if (tablePhase !== 'betting' || chipStack.length === 0) return;
+    play('chip');
+    setChipStack(chipStack.slice(0, -1));
+  }, [chipStack, tablePhase]);
 
   const clearBet = useCallback(() => {
     if (tablePhase !== 'betting') return;
@@ -295,18 +301,18 @@ export function useGame(profile: Profile, mode: Mode): Game {
 
   const doubleStake = useCallback(() => {
     if (tablePhase !== 'betting' || endlessOver) return;
-    setChipStack((stack) => {
-      const total = stack.reduce((s, x) => s + x, 0);
-      if (total < 1 || total * 2 > bankrollRef.current || total * 2 > TABLE_MAX_BET) return stack;
-      return [...stack, total];
-    });
-  }, [endlessOver, tablePhase]);
+    const total = chipStack.reduce((s, x) => s + x, 0);
+    if (total < 1 || total * 2 > bankrollRef.current || total * 2 > TABLE_MAX_BET) return;
+    play('chip');
+    setChipStack([...chipStack, total]);
+  }, [chipStack, endlessOver, tablePhase]);
 
   const canRebuy = mode !== 'endless' && tablePhase === 'betting' && bankroll < 1;
 
   const rebuy = useCallback(() => {
     if (mode === 'endless' || bankrollRef.current >= 1) return;
     profile.rebuys++;
+    play('chip');
     setRoll(STARTING_BANKROLL);
     setChipStack([DEFAULT_BET]);
     saveProfile(profile);

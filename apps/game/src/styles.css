@@ -1064,6 +1064,12 @@ a {
   border-color: rgba(82, 216, 150, 0.5);
 }
 
+.btn--mute {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
 .timer {
   width: min(420px, 80vw);
   height: 6px;
@@ -1256,9 +1262,16 @@ a {
 
 .mode-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  margin-bottom: 2rem;
+  max-width: 620px;
+  margin: 0 auto 2rem;
+}
+
+@media (max-width: 520px) {
+  .mode-cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mode-card {

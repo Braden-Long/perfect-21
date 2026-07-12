@@ -5,11 +5,17 @@ import { rankOf, topMisses } from '../profile';
 
 type PlayChoice = Mode | 'drill';
 
+// Learn on top, compete below: practice/drill are the front door.
 const MODES: Array<{ id: PlayChoice; name: string; desc: string }> = [
   {
     id: 'practice',
     name: 'Practice',
     desc: 'No pressure. Optional hints, instant feedback on every decision.',
+  },
+  {
+    id: 'drill',
+    name: 'Drill',
+    desc: 'Rapid-fire reps of the exact hands you get wrong. No chips, pure decisions.',
   },
   {
     id: 'competitive',
@@ -20,11 +26,6 @@ const MODES: Array<{ id: PlayChoice; name: string; desc: string }> = [
     id: 'endless',
     name: 'Endless',
     desc: 'A 100-chip stack. One strategy mistake — or busting out — ends the run.',
-  },
-  {
-    id: 'drill',
-    name: 'Drill',
-    desc: 'Rapid-fire reps of the exact hands you get wrong. No chips, pure decisions.',
   },
 ];
 

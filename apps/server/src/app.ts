@@ -356,9 +356,13 @@ export function createApp({ db, adminToken, staticDir, sendMail, publicUrl }: Ap
           b.bestStreak - a.bestStreak
       )
       .slice(0, 100);
-    const streaks = rows
+    // The endless board is its own game: a long run is proof of volume, so it
+    // doesn't wait for the accuracy-rank decision floor.
+    const streakRows = db
+      .prepare('SELECT * FROM players WHERE banned = 0 AND best_streak > 0')
+      .all() as unknown as PlayerRow[];
+    const streaks = streakRows
       .map(publicView)
-      .filter((p) => p.bestStreak > 0)
       .sort((a, b) => b.bestStreak - a.bestStreak || b.rollingAccuracy - a.rollingAccuracy)
       .slice(0, 20)
       .map((p) => ({ name: p.name, bestStreak: p.bestStreak, tier: p.tier }));

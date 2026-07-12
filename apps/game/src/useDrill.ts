@@ -6,6 +6,7 @@ import type { Profile } from './profile';
 import { logDecision, saveProfile } from './profile';
 import { dealDrillHand, drillActions } from './drill';
 import type { DrillHand } from './drill';
+import { play } from './sound';
 
 export interface Drill {
   status: 'loading' | 'ready';
@@ -83,6 +84,7 @@ export function useDrill(profile: Profile): Drill {
         explanation: explain(strategy, [...hand.ranks], hand.up, rec),
         evs: rec.evs,
       });
+      play(ok ? 'correct' : 'incorrect');
       setReps((n) => n + 1);
       if (ok) setCorrect((n) => n + 1);
       setPhase('review');
@@ -92,6 +94,7 @@ export function useDrill(profile: Profile): Drill {
 
   const next = useCallback(() => {
     if (phase !== 'review' || !hand) return;
+    play('deal');
     setHand(dealDrillHand(profile, hand.cellKey));
     setFeedback(null);
     setPhase('decide');

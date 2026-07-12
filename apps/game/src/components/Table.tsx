@@ -4,6 +4,7 @@ import type { Action, HandState, Rules } from '@perfect21/engine';
 import type { Game, Mode } from '../useGame';
 import { CHIP_DENOMS, DECISION_SECONDS, TABLE_MAX_BET } from '../useGame';
 import type { Profile } from '../profile';
+import { setSoundMuted, soundMuted } from '../sound';
 import { CardView } from './CardView';
 
 const ACTION_KEYS: Record<string, Action> = {
@@ -134,6 +135,24 @@ export function FeltText({ rules }: { rules: Rules }) {
         </textPath>
       </text>
     </svg>
+  );
+}
+
+/* ---------- mute toggle ---------- */
+
+export function MuteButton() {
+  const [muted, setMuted] = useState(soundMuted);
+  return (
+    <button
+      className="btn btn--ghost btn--mute"
+      title={muted ? 'Unmute table sounds' : 'Mute table sounds'}
+      onClick={() => {
+        setSoundMuted(!muted);
+        setMuted(!muted);
+      }}
+    >
+      {muted ? '🔇' : '🔊'}
+    </button>
   );
 }
 
@@ -270,6 +289,7 @@ export function Table({
             {showHint ? 'Hints: on' : 'Hints: off'}
           </button>
         )}
+        <MuteButton />
       </header>
 
       {banner}

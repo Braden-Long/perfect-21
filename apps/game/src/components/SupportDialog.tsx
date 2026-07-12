@@ -20,7 +20,7 @@ export function SupportDialog({ onClose }: { onClose: () => void }) {
       <div className="overlay__panel overlay__panel--rules" onClick={(e) => e.stopPropagation()}>
         <h2>Support Perfect 21</h2>
         <p className="rules-note">
-          Perfect 21 is free: no ads, no accounts, no wagering, nothing for sale. If it made you a
+          Perfect 21 is free: no ads, no paywall, no wagering, nothing for sale. If it made you a
           sharper player and you feel like tipping the house, these jars exist. Tips change nothing
           about the game — please don&rsquo;t feel obliged.
         </p>
@@ -47,11 +47,17 @@ export function SupportDialog({ onClose }: { onClose: () => void }) {
         )}
 
         <p className="rules-note">
-          You can also star the project on{' '}
-          <a href={SITE.repoUrl} target="_blank" rel="noreferrer">
-            GitHub
-          </a>{' '}
-          or just tell a friend who plays 16 vs 10 wrong.
+          {SITE.repoUrl ? (
+            <>
+              You can also star the project on{' '}
+              <a href={SITE.repoUrl} target="_blank" rel="noreferrer">
+                GitHub
+              </a>{' '}
+              or just tell a friend who plays 16 vs 10 wrong.
+            </>
+          ) : (
+            <>Or just tell a friend who plays 16 vs 10 wrong.</>
+          )}
         </p>
 
         <div className="overlay__buttons">

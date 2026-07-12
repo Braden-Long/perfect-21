@@ -3,7 +3,11 @@
  * client bundle.
  */
 export const SITE = {
-  repoUrl: 'https://github.com/Braden-Long/perfect-21',
+  /**
+   * Public source link, shown in the Support dialog when non-empty. The repo
+   * is private for now — put the URL back here if/when it goes public.
+   */
+  repoUrl: '',
 
   /**
    * Tip-jar addresses (tip-only monetization: no ads, no wagering, no paywall).

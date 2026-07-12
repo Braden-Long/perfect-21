@@ -5,7 +5,7 @@ import type { Profile } from '../profile';
 import { useDrill } from '../useDrill';
 import { cellLabel } from '../drill';
 import { CardView } from './CardView';
-import { DECISION_BUTTONS, FeltText, totalLabel } from './Table';
+import { DECISION_BUTTONS, FeltText, MuteButton, totalLabel } from './Table';
 
 const ACTION_KEYS: Record<string, Action> = {
   h: 'hit',
@@ -78,6 +78,7 @@ export function DrillScreen({ profile, onExit }: { profile: Profile; onExit: () 
             <b>{drill.reps > 0 ? `${((drill.correct / drill.reps) * 100).toFixed(0)}%` : '—'}</b>
           </span>
         </div>
+        <MuteButton />
       </header>
 
       <div className="table">
