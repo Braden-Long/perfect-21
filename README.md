@@ -1,10 +1,16 @@
 # Perfect 21
 
-A first-person blackjack **basic-strategy trainer**. This is math, not gambling: no wagering,
-no bankroll mechanics — you're scored purely on whether each decision matches optimal basic
-strategy for the table rules in play.
+A first-person blackjack **basic-strategy trainer**, delivered as a website. This is math, not
+gambling: no wagering, no bankroll mechanics — you're scored purely on whether each decision
+matches optimal basic strategy for the table rules in play.
 
 ![modes](https://img.shields.io/badge/modes-practice%20%C2%B7%20competitive%20%C2%B7%20endless-d8b36c)
+
+> **Why web-first?** A trainer lives on frictionless access — "click this link" converts far
+> better than "install a Steam app". The competitive layer (global leaderboard) needs a server
+> either way, and tip-only monetization doesn't fit Steam's paid model. The Electron shell in
+> `apps/desktop` still works and keeps a future Steam release open, but the website is the
+> product.
 
 ## What it does
 
@@ -25,6 +31,11 @@ strategy for the table rules in play.
   your expected RTP (theory minus the EV your mistakes gave away), and deviation-from-optimal %.
 - **Persistent rank** from your rolling decision accuracy: Bronze → Silver → Gold → Platinum →
   Diamond → **Perfect 21** (a full 200-decision window without a single miss).
+- **Global leaderboard**: claim a display name (no account, no email — a credential stays in
+  your browser) and your rank, rolling accuracy, and best endless streak sync automatically.
+  Fully optional; the game works offline/statically without it.
+- **Tip-only monetization**: no ads, no paywall, no wagering. A Support dialog shows the
+  site owner's crypto tip jars (configured in `apps/game/src/config.ts`; hidden until set).
 
 ### Modes
 
@@ -38,37 +49,62 @@ strategy for the table rules in play.
 
 ```bash
 npm install
-npm run dev        # web build at http://localhost:5173
-npm run desktop    # native macOS window (Electron)
-npm test           # engine + UI test suite
+npm run dev        # game client at http://localhost:5173 (API proxied to :8721)
+npm run server     # API + leaderboard server at http://localhost:8721
+npm start          # production: build client, serve site + API from one process
+npm run desktop    # optional native macOS window (Electron)
+npm test           # engine + server + UI test suite
 ```
+
+### Production deployment
+
+One process serves everything (site + API + SQLite storage) — any small VPS or container host
+works:
+
+```bash
+ADMIN_TOKEN=pick-something-long PORT=8721 npm start
+# or
+docker build -t perfect21 . && docker run -p 8721:8721 -e ADMIN_TOKEN=... -v p21data:/data perfect21
+```
+
+- **Admin panel**: visit `https://your-site/#admin` and enter the `ADMIN_TOKEN`. Overview
+  stats, player list, ban/unban, delete. Admin routes are disabled entirely if the env var
+  isn't set.
+- **Tip jar**: put your addresses in `apps/game/src/config.ts` and rebuild. Empty entries are
+  hidden. (Addresses only — never private keys.)
+- **Database**: single SQLite file (`DB_PATH`, default `apps/server/data/perfect21.db`), via
+  Node's built-in `node:sqlite` — no native modules to compile.
+- The client also works fully static (GitHub Pages etc.): leaderboard UI degrades to an
+  offline notice, everything else is untouched.
 
 ## Architecture
 
 ```
 packages/engine    Pure TypeScript, zero dependencies. Cards/shoe, round state machine,
                    EV calculator + strategy derivation, stats/RTP math, rank ladder,
-                   plain-language explanations. No DOM, no UI — this is the layer a future
-                   multiplayer server imports verbatim.
+                   plain-language explanations. No DOM, no UI — imported verbatim by both
+                   the client and the server.
 apps/game          Vite + React client. First-person table, modes, feedback, charts,
-                   stats, local profile persistence.
-apps/desktop       Electron shell for the macOS (and later Windows) build.
+                   stats, leaderboard, admin panel, tip jar, local profile persistence.
+apps/server        Express + node:sqlite. Leaderboard/player sync API with server-side
+                   validation and rank computation, admin API, serves the built client.
+apps/desktop       Optional Electron shell (kept for a possible Steam release).
 docs/              Requirements and design notes.
 ```
 
-The client/engine split is deliberate: competitive multiplayer needs a server that can verify
-decision grading server-side, so all game logic lives in `@perfect21/engine` with no browser
-dependencies. A Node backend can `import { Round, getStrategy } from '@perfect21/engine'` and
-replay/verify any client claim.
+The client/engine split is deliberate: the server imports `@perfect21/engine` (e.g. rank
+computation runs server-side on submitted decision histories), and it's the foundation for
+stronger server-side verification later. Grading is currently client-computed and
+server-validated for consistency (monotonic counters, bounded values) — honest-player-grade,
+not anticheat-grade; the admin panel exists to prune anything that looks wrong.
 
-### Why web tech + Electron for a Steam game?
+### Trust & privacy model
 
-Evolution's First Person Blackjack — the visual reference — is itself an HTML5 game. Web tech
-gets us the macOS build now, the Windows build for free, a plain website build for free
-(`apps/game/dist` is deployable as-is), and one TypeScript codebase shared with the future
-server. For Steam: package `apps/desktop` with electron-builder and integrate
-[steamworks.js](https://github.com/ceifa/steamworks.js) for achievements/leaderboards when a
-Steam app ID exists (`npm run dist -w @perfect21/desktop` already produces the installers).
+- No accounts, no email, no passwords: joining the leaderboard mints a random id + secret
+  stored in your browser's localStorage. Lose the browser profile, lose the name — acceptable
+  for a tip-jar-funded trainer.
+- The server stores only: display name, decision/win counters, the rolling 200-decision
+  correctness window, and a rules key. No IPs are persisted.
 
 ### How strategy derivation works
 
@@ -89,10 +125,12 @@ subtracted from theory.
 ## Roadmap
 
 - **Card counting mode** (planned next): running/true count drills, deviation indices (Illustrious 18).
-- **Backend server**: accounts, synced ranks, cross-device play, verified leaderboards.
-- **Steam packaging**: app ID, steamworks.js achievements/leaderboards, Windows build.
+- **Server-side decision verification**: replay submitted hands through the engine for
+  anticheat-grade leaderboards; cross-device identity via export/import of the local credential.
 - Insurance decisions (grade "never take insurance" — trivially correct but worth teaching).
 - Multi-seat play and richer table presentation.
+- **Steam packaging** (optional, shell already works): app ID, steamworks.js achievements,
+  Windows build via electron-builder.
 
 ## License / disclaimer
 

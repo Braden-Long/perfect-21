@@ -27,12 +27,16 @@ export function Menu({
   onStats,
   onChart,
   onRules,
+  onBoard,
+  onSupport,
 }: {
   profile: Profile;
   onPlay: (mode: Mode) => void;
   onStats: () => void;
   onChart: () => void;
   onRules: () => void;
+  onBoard: () => void;
+  onSupport: () => void;
 }) {
   const rank = rankOf(profile);
   const lifetimeAcc =
@@ -84,6 +88,9 @@ export function Menu({
         </div>
 
         <div className="menu__links">
+          <button className="btn btn--ghost" onClick={onBoard}>
+            Leaderboard
+          </button>
           <button className="btn btn--ghost" onClick={onRules}>
             Table rules
           </button>
@@ -93,7 +100,12 @@ export function Menu({
           <button className="btn btn--ghost" onClick={onStats}>
             Statistics
           </button>
+          <button className="btn btn--ghost btn--support" onClick={onSupport}>
+            ♥ Support
+          </button>
         </div>
+        {profile.player && <p className="menu__signed">playing as {profile.player.name}</p>}
+        <p className="menu__footer">free forever · no ads · no wagering · tips only</p>
       </div>
     </div>
   );

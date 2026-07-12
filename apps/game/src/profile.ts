@@ -6,6 +6,8 @@ const HISTORY_CAP = 1000;
 
 export interface Profile {
   rules: Rules;
+  /** Leaderboard identity, once the player claims a name. */
+  player?: { id: string; secret: string; name: string };
   /** Rolling decision history (correct?), oldest first. */
   history: boolean[];
   lifetimeDecisions: number;

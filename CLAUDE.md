@@ -2,18 +2,26 @@
 
 Blackjack basic-strategy trainer. npm workspaces monorepo, TypeScript strict everywhere.
 
+**Product decision (2026-07): web-first.** The website is the product; Electron/Steam is a
+kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/config.ts`).
+
 ## Commands
-- `npm test` — vitest (engine math + jsdom UI smoke tests)
-- `npm run dev` — Vite dev server for the game client
+- `npm test` — vitest (engine math + server API + jsdom UI smoke tests)
+- `npm run dev` — Vite dev server for the game client (proxies `/api` → :8721)
+- `npm run server` — API/leaderboard server (env: `PORT`, `DB_PATH`, `ADMIN_TOKEN`)
 - `npm run build` — typecheck + production build of the client
+- `npm start` — production: build client + serve site/API from apps/server
 - `npm run desktop` — build client, open Electron shell (`--smoke` flag loads and exits)
 
 ## Layout
-- `packages/engine` — pure TS game logic, **no DOM/browser APIs** (future server imports it).
+- `packages/engine` — pure TS game logic, **no DOM/browser APIs** (server imports it).
   Ranks are numbers 1–10 (1=ace, 10=any ten-value). Chart keys: `h16-10`, `s18-3`, `p8-1`
   (hard/soft/pair, `-<dealer upcard>`; ace column is `-1`).
 - `apps/game` — React client. Engine is aliased to source (`@perfect21/engine` → engine/src)
   in vite.config.ts, root vitest.config.ts, and tsconfig paths — keep the three in sync.
+  All server calls go through `src/api.ts` and must degrade gracefully offline/static.
+- `apps/server` — Express + `node:sqlite` (built-in; requires vitest ≥3 to resolve).
+  Admin panel lives in the client at `#admin`, authed by `ADMIN_TOKEN` bearer header.
 - `apps/desktop` — Electron shell, loads `apps/game/dist`.
 
 ## Invariants

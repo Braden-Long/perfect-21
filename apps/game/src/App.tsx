@@ -1,15 +1,24 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Rules } from '@perfect21/engine';
 import { Menu } from './components/Menu';
 import { Table } from './components/Table';
 import { StatsScreen } from './components/StatsScreen';
 import { ChartScreen } from './components/ChartScreen';
 import { RulesDialog } from './components/RulesDialog';
+import { LeaderboardScreen } from './components/LeaderboardScreen';
+import { SupportDialog } from './components/SupportDialog';
+import { AdminScreen } from './components/AdminScreen';
 import { loadProfile, saveProfile } from './profile';
 import { useGame } from './useGame';
 import type { Mode } from './useGame';
 
-type Screen = { name: 'menu' } | { name: 'game'; mode: Mode } | { name: 'stats' } | { name: 'chart' };
+type Screen =
+  | { name: 'menu' }
+  | { name: 'game'; mode: Mode }
+  | { name: 'stats' }
+  | { name: 'chart' }
+  | { name: 'board' }
+  | { name: 'admin' };
 
 function GameScreen({ mode, onExit }: { mode: Mode; onExit: () => void }) {
   // Profile is read fresh per mounted game so rule changes apply.
@@ -19,11 +28,24 @@ function GameScreen({ mode, onExit }: { mode: Mode; onExit: () => void }) {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>({ name: 'menu' });
+  const [screen, setScreen] = useState<Screen>(() =>
+    location.hash === '#admin' ? { name: 'admin' } : { name: 'menu' }
+  );
   const [profile, setProfile] = useState(loadProfile);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+
+  // The admin panel is reachable by URL (…/#admin) so it can be bookmarked.
+  useEffect(() => {
+    const onHash = () => {
+      if (location.hash === '#admin') setScreen({ name: 'admin' });
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const backToMenu = useCallback(() => {
+    if (location.hash === '#admin') history.replaceState(null, '', ' ');
     setProfile(loadProfile());
     setScreen({ name: 'menu' });
   }, []);
@@ -44,6 +66,10 @@ export default function App() {
       return <StatsScreen profile={profile} onBack={backToMenu} />;
     case 'chart':
       return <ChartScreen profile={profile} onBack={backToMenu} />;
+    case 'board':
+      return <LeaderboardScreen profile={profile} onBack={backToMenu} />;
+    case 'admin':
+      return <AdminScreen onBack={backToMenu} />;
     case 'menu':
       return (
         <>
@@ -53,10 +79,13 @@ export default function App() {
             onStats={() => setScreen({ name: 'stats' })}
             onChart={() => setScreen({ name: 'chart' })}
             onRules={() => setRulesOpen(true)}
+            onBoard={() => setScreen({ name: 'board' })}
+            onSupport={() => setSupportOpen(true)}
           />
           {rulesOpen && (
             <RulesDialog rules={profile.rules} onSave={saveRules} onClose={() => setRulesOpen(false)} />
           )}
+          {supportOpen && <SupportDialog onClose={() => setSupportOpen(false)} />}
         </>
       );
   }

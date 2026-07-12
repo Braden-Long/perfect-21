@@ -56,6 +56,28 @@ describe('Perfect 21 app', () => {
     );
   });
 
+  it('shows a friendly offline notice on the leaderboard without a server', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('Leaderboard'));
+    await waitFor(() => expect(screen.getByText(/leaderboard server is unreachable/i)).toBeTruthy(), {
+      timeout: 10000,
+    });
+  });
+
+  it('shows the tip jar with a configuration note when no addresses are set', () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('♥ Support'));
+    expect(screen.getByText('Support Perfect 21')).toBeTruthy();
+    expect(screen.getByText(/No tip addresses are configured/i)).toBeTruthy();
+  });
+
+  it('gates the admin panel behind a token via #admin', async () => {
+    window.location.hash = '#admin';
+    render(<App />);
+    expect(screen.getByPlaceholderText('Admin token')).toBeTruthy();
+    window.location.hash = '';
+  });
+
   it('shows the strategy chart for the active rules', async () => {
     render(<App />);
     fireEvent.click(screen.getByText('Strategy chart'));

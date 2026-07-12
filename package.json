@@ -11,12 +11,14 @@
     "dev": "npm run dev -w @perfect21/game",
     "build": "npm run build -w @perfect21/game",
     "test": "vitest run",
+    "server": "npm run start -w @perfect21/server",
+    "start": "npm run build && npm run start -w @perfect21/server",
     "desktop": "npm run start -w @perfect21/desktop"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
     "jsdom": "^29.1.1",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^3.2.7"
   }
 }

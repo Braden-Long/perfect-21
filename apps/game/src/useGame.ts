@@ -10,6 +10,7 @@ import {
 import type { Action, CellEVs, Recommendation, Strategy } from '@perfect21/engine';
 import type { Profile } from './profile';
 import { recordDecision, saveProfile } from './profile';
+import { scheduleSync } from './api';
 
 export type Mode = 'practice' | 'competitive' | 'endless';
 
@@ -70,6 +71,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     profile.totalRounds++;
     profile.totalNet += summary.net;
     saveProfile(profile);
+    scheduleSync(profile);
   }, [profile]);
 
   const dealNext = useCallback(() => {

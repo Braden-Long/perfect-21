@@ -5,3 +5,4 @@ release/
 .DS_Store
 .vite/
 coverage/
+apps/server/data/
