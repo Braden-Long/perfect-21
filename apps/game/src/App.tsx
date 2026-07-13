@@ -119,7 +119,11 @@ export default function App() {
             profile={profile}
             onPlay={(mode) =>
               setScreen(
-                mode === 'drill' || mode === 'learn' ? { name: mode } : { name: 'game', mode }
+                mode === 'drill'
+                  ? { name: 'drill' }
+                  : mode === 'learn'
+                    ? { name: 'learn' }
+                    : { name: 'game', mode }
               )
             }
             onHistory={() => setScreen({ name: 'history' })}

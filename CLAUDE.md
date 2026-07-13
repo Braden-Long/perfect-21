@@ -50,8 +50,15 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   Count trainer (CountTrainer.tsx, `#learn`) is the same deal for counting fundamentals —
   session-only stats, touches nothing in the profile.
 - The chip bankroll is a **client-side layer** (useGame.ts): the engine stays unit-based
-  (initial bet = 1) so EV/RTP math is untouched; chips = units × the round's bet, and server
-  sync still sends unit-based `net`. Endless runs use an ephemeral 100-chip stack; the
-  persistent roll lives in `profile.bankroll`.
+  (initial bet = 1 per seat) so EV/RTP math is untouched; chips = units × the round's bet, and
+  server sync still sends unit-based `net`. Endless runs use an ephemeral 100-chip stack; the
+  persistent roll lives in `profile.bankroll`. Table limits: TABLE_MIN_BET=5 per spot (deal
+  refused below it; rebuy/endless-bust trigger under it), TABLE_MAX_BET=500.
+- Multi-seat (`Round` opts.seats ≤ MAX_SEATS=3, casino deal order, seat 0 = rightmost, splits
+  inherit `hand.seat`) is practice/counting only — competitive and endless stay single-seat by
+  design. Every seat is one initial bet: profile.totalRounds += seats, RoundSummary.initialBet
+  = seats, insurance is ±0.5 × seats. The felt zoom (Table.tsx transform-origin) follows
+  `round.activeHand.seat`; keep giant-ellipse CSS cheap to rasterize (no repeating gradients
+  or spread shadows on it — it froze screenshot rasterization once already).
 - No real-money mechanics anywhere — chips are valueless play tokens, never purchasable.
   This is an education tool by design (see docs/REQUIREMENTS.md).

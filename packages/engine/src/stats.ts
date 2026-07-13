@@ -58,8 +58,8 @@ export class SessionStats {
 
   /** Theoretical RTP degraded by the EV given up on incorrect decisions. */
   expectedRTP(theoreticalRTP: number): number {
-    if (this.rounds === 0) return theoreticalRTP;
-    return theoreticalRTP - this.totalEVLoss / this.rounds;
+    if (this.wagered === 0) return theoreticalRTP;
+    return theoreticalRTP - this.totalEVLoss / this.wagered;
   }
 }
 

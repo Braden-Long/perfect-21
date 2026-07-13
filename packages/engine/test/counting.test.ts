@@ -143,9 +143,9 @@ function rigged(ranks: Rank[]): { draw(): Card; needsShuffle: boolean; shuffle()
 }
 
 describe('insurance flow', () => {
-  // Deal order: player, player, dealer up, dealer hole.
+  // Deal order (casino-style): first card to each seat, dealer up, second card each, hole.
   it('offers insurance on an ace up, pays 2:1 against dealer blackjack', () => {
-    const round = new Round(S17, rigged([10, 9, 1, 10]), { offerInsurance: true });
+    const round = new Round(S17, rigged([10, 1, 9, 10]), { offerInsurance: true });
     round.deal();
     expect(round.phase).toBe('insurance');
     round.takeInsurance(true);
@@ -157,7 +157,7 @@ describe('insurance flow', () => {
   });
 
   it('insurance loses half a unit when the dealer has no blackjack', () => {
-    const round = new Round(S17, rigged([10, 10, 1, 9, 7]), { offerInsurance: true });
+    const round = new Round(S17, rigged([10, 1, 10, 9, 7]), { offerInsurance: true });
     round.deal();
     round.takeInsurance(true);
     expect(round.phase).toBe('player');
@@ -167,7 +167,7 @@ describe('insurance flow', () => {
   });
 
   it('declining insurance costs nothing and play continues', () => {
-    const round = new Round(S17, rigged([10, 10, 1, 6]), { offerInsurance: true });
+    const round = new Round(S17, rigged([10, 1, 10, 6]), { offerInsurance: true });
     round.deal();
     round.takeInsurance(false);
     round.act('stand');
@@ -177,16 +177,16 @@ describe('insurance flow', () => {
   });
 
   it('never offers insurance unless asked, or without an ace up', () => {
-    const noOffer = new Round(S17, rigged([10, 9, 1, 10]));
+    const noOffer = new Round(S17, rigged([10, 1, 9, 10]));
     noOffer.deal();
     expect(noOffer.phase).toBe('settled'); // peek found the blackjack immediately
-    const tenUp = new Round(S17, rigged([10, 9, 10, 9, 5]), { offerInsurance: true });
+    const tenUp = new Round(S17, rigged([10, 10, 9, 9, 5]), { offerInsurance: true });
     tenUp.deal();
     expect(tenUp.phase).toBe('player');
   });
 
   it('player blackjack still settles after the insurance decision', () => {
-    const round = new Round(S17, rigged([1, 10, 1, 9]), { offerInsurance: true });
+    const round = new Round(S17, rigged([1, 1, 10, 9]), { offerInsurance: true });
     round.deal();
     expect(round.phase).toBe('insurance');
     round.takeInsurance(false);

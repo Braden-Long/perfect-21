@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { ACTION_LABEL, betRamp, cardRanks, handValue } from '@perfect21/engine';
 import type { Action, HandState, Rules } from '@perfect21/engine';
 import type { Game, Mode } from '../useGame';
-import { CHIP_DENOMS, COUNTING_UNIT, DECISION_SECONDS, TABLE_MAX_BET } from '../useGame';
+import {
+  CHIP_DENOMS,
+  COUNTING_UNIT,
+  DECISION_SECONDS,
+  MAX_TABLE_SEATS,
+  TABLE_MAX_BET,
+  TABLE_MIN_BET,
+} from '../useGame';
 import { setSoundMuted, soundMuted } from '../sound';
 import { CardView } from './CardView';
 
@@ -25,6 +32,20 @@ export const DECISION_BUTTONS: Array<{ action: Action; glyph: string }> = [
 
 function fmtChips(n: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 1 });
+}
+
+/**
+ * Horizontal centers of the betting spots, in % of felt width. Seat 0 is the
+ * rightmost spot — casinos (and Evolution) play right to left.
+ */
+const SEAT_XS: Record<number, number[]> = {
+  1: [50],
+  2: [65, 35],
+  3: [75, 50, 25],
+};
+
+function seatXs(count: number): number[] {
+  return SEAT_XS[count] ?? SEAT_XS[1];
 }
 
 export function totalLabel(cards: HandState['cards']): string {
@@ -117,7 +138,7 @@ export function FeltText({ rules, counting = false }: { rules: Rules; counting?:
       <defs>
         <path id="p21-arc-a" d="M 60 268 Q 500 96 940 268" fill="none" />
         <path id="p21-arc-b" d="M 110 330 Q 500 178 890 330" fill="none" />
-        <path id="p21-arc-c" d="M 170 398 Q 500 264 830 398" fill="none" />
+        <path id="p21-arc-c" d="M 170 409 Q 500 276 830 409" fill="none" />
       </defs>
       <text className="felt-text__big">
         <textPath
@@ -264,6 +285,19 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
   const playing = round !== null && round.phase === 'player' && !game.endlessOver;
   const insuring = round !== null && round.phase === 'insurance';
 
+  // After a round settles the cards linger for a beat, then get swept to the
+  // discard so the next betting round starts on a clean felt (Evolution-style).
+  const [swept, setSwept] = useState(false);
+  const settledNow = round !== null && round.phase === 'settled';
+  useEffect(() => {
+    if (betting && settledNow && !game.endlessOver) {
+      setSwept(false);
+      const t = setTimeout(() => setSwept(true), 2000);
+      return () => clearTimeout(t);
+    }
+    setSwept(false);
+  }, [betting, settledNow, game.endlessOver, game.version]);
+
   const hint = useMemo(
     () => (mode === 'practice' && showHint && playing ? game.recommend() : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -308,6 +342,8 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
   } · ${r.peek ? 'PEEK' : 'ENHC'}`;
 
   const settled = round !== null && round.phase === 'settled';
+  // Results get a clean beat on the felt before the spots reopen for bets.
+  const spotsOpen = betting && !game.endlessOver && (!settled || swept);
   const feedbackEVRows = feedback
     ? DECISION_BUTTONS.map((b) => b.action)
         .filter((a) => feedback.evs[a] !== undefined)
@@ -369,7 +405,20 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
       {mode === 'counting' && <CountPanel game={game} />}
 
       <div className="table">
-        <div className="table__felt">
+        <div
+          className="table__felt"
+          style={{
+            // Evolution-style camera: overview while betting, then ease in
+            // toward whichever spot is acting (seats play right to left).
+            transformOrigin: `${
+              playing && round ? seatXs(round.seats)[round.activeHand.seat] : 50
+            }% 56%`,
+            transform:
+              playing && round
+                ? `scale(${round.seats > 1 ? 1.26 : 1.1})`
+                : 'scale(1)',
+          }}
+        >
           <div className="rack" aria-hidden="true">
             {[500, 100, 25, 5, 1, 5, 25, 100].map((v, i) => (
               <span key={i} className={`rack__stack chip ${CHIP_CLASS[v]}`} />
@@ -381,7 +430,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
 
           <section className="dealer-spot">
             {round && round.dealerCards.length > 0 && (
-              <>
+              <div className={swept ? 'swept' : ''}>
                 <div className="cards cards--dealer">
                   {round.dealerCards.map((c, i) => (
                     <CardView key={i} card={c} index={i} hidden={i === 1 && !round.holeRevealed} />
@@ -392,7 +441,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
                     ? totalLabel(round.dealerCards)
                     : totalLabel(round.dealerCards.slice(0, 1))}
                 </div>
-              </>
+              </div>
             )}
           </section>
 
@@ -425,53 +474,72 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
           )}
 
           <section className="player-spot">
-            {round && (
-              <div className="hands">
-                {round.hands.map((hand, i) => {
-                  const isActive = playing && i === round.active;
-                  const result = settled ? resultLabel(hand, game.roundBet) : null;
-                  return (
-                    <div key={i} className={`hand ${isActive ? 'hand--active' : ''}`}>
-                      {result && (
-                        <div
-                          className={`hand__result ${
-                            hand.result === 'win' || hand.result === 'blackjack'
-                              ? 'hand__result--win'
-                              : hand.result === 'push'
-                                ? 'hand__result--push'
-                                : 'hand__result--lose'
-                          }`}
-                        >
-                          {result}
-                        </div>
-                      )}
-                      <div className="cards cards--player">
-                        {hand.cards.map((c, j) => (
-                          <CardView key={j} card={c} index={j} />
-                        ))}
-                      </div>
-                      <div className="hand__meta">
-                        <span className="total-badge">{totalLabel(hand.cards)}</span>
-                        {!betting && <ChipStack amount={hand.bet * game.roundBet} />}
-                      </div>
+            {Array.from(
+              { length: betting ? game.seats : round?.seats ?? 1 },
+              (_, seat) => seat
+            ).map((seat, _, all) => {
+              const x = seatXs(all.length)[seat];
+              const seatHands = round
+                ? round.hands
+                    .map((hand, i) => ({ hand, i }))
+                    .filter(({ hand }) => hand.seat === seat)
+                : [];
+              return (
+                <div
+                  key={seat}
+                  className="seat"
+                  // Outer spots ride up the arc of the rail, like a real table.
+                  style={{ left: `${x}%`, bottom: `${Math.abs(x - 50) * 0.45}%` }}
+                >
+                  {seatHands.length > 0 && (
+                    <div className={`hands ${swept ? 'swept' : ''}`}>
+                      {seatHands.map(({ hand, i }) => {
+                        const isActive = playing && i === round!.active;
+                        const result = settled ? resultLabel(hand, game.roundBet) : null;
+                        return (
+                          <div key={i} className={`hand ${isActive ? 'hand--active' : ''}`}>
+                            {result && (
+                              <div
+                                className={`hand__result ${
+                                  hand.result === 'win' || hand.result === 'blackjack'
+                                    ? 'hand__result--win'
+                                    : hand.result === 'push'
+                                      ? 'hand__result--push'
+                                      : 'hand__result--lose'
+                                }`}
+                              >
+                                {result}
+                              </div>
+                            )}
+                            <div className="cards cards--player">
+                              {hand.cards.map((c, j) => (
+                                <CardView key={j} card={c} index={j} />
+                              ))}
+                            </div>
+                            <div className="hand__meta">
+                              <span className="total-badge">{totalLabel(hand.cards)}</span>
+                              {!betting && <ChipStack amount={hand.bet * game.roundBet} />}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className={`bet-spot ${betting && !game.endlessOver ? 'bet-spot--open' : ''}`}>
-              {betting && !game.endlessOver && (
-                <>
-                  <span className="bet-spot__ring" />
-                  {game.bet >= 1 ? (
-                    <ChipStack amount={game.bet} />
-                  ) : (
-                    <span className="bet-spot__hint">BET</span>
                   )}
-                </>
-              )}
-            </div>
+                  <div className={`bet-spot ${spotsOpen ? 'bet-spot--open' : ''}`}>
+                    {spotsOpen && (
+                      <>
+                        <span className="bet-spot__ring" />
+                        {game.bet >= 1 ? (
+                          <ChipStack amount={game.bet} />
+                        ) : (
+                          <span className="bet-spot__hint">BET</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </section>
         </div>
       </div>
@@ -550,7 +618,10 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
                   <button
                     key={v}
                     className="chip-btn"
-                    disabled={game.bet + v > game.bankroll || game.bet + v > TABLE_MAX_BET}
+                    disabled={
+                      (game.bet + v) * game.seats > game.bankroll ||
+                      game.bet + v > TABLE_MAX_BET
+                    }
                     onClick={() => game.addChip(v)}
                     aria-label={`add ${v} chip`}
                   >
@@ -574,13 +645,35 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
                   className="round-btn"
                   onClick={game.doubleStake}
                   disabled={
-                    game.bet < 1 || game.bet * 2 > game.bankroll || game.bet * 2 > TABLE_MAX_BET
+                    game.bet < 1 ||
+                    game.bet * 2 * game.seats > game.bankroll ||
+                    game.bet * 2 > TABLE_MAX_BET
                   }
                   title="Double bet"
                 >
                   ×2
                 </button>
               </div>
+              {game.canMultiSeat && (
+                <div className="seat-picker">
+                  <span>Spots</span>
+                  {Array.from({ length: MAX_TABLE_SEATS }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      className={`trainer-seg__btn ${game.seats === n ? 'trainer-seg__btn--on' : ''}`}
+                      onClick={() => game.setSeats(n)}
+                      disabled={game.bankroll < TABLE_MIN_BET * n}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  {game.seats > 1 && game.bet >= 1 && (
+                    <i>
+                      {fmtChips(game.bet)} × {game.seats} = {fmtChips(game.bet * game.seats)}
+                    </i>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

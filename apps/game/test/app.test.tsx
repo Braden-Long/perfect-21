@@ -87,6 +87,28 @@ describe('Perfect 21 app', () => {
     expect(screen.getByText('30')).toBeTruthy();
   });
 
+  it('enforces the table minimum and deals across multiple spots', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('Practice'));
+    await waitFor(() => expect(screen.getByText('PLACE YOUR BET')).toBeTruthy(), {
+      timeout: 30000,
+    });
+
+    // A 1-chip bet is below the 5-chip table minimum: the deal is refused.
+    fireEvent.click(screen.getByTitle('Undo chip'));
+    fireEvent.click(screen.getByLabelText('add 1 chip'));
+    expect((screen.getByText('DEAL') as HTMLButtonElement).disabled).toBe(true);
+
+    // Stage the minimum and spread it across three spots: 15 chips leave the rail.
+    fireEvent.click(screen.getByTitle('Undo chip'));
+    fireEvent.click(screen.getByLabelText('add 5 chip'));
+    fireEvent.click(screen.getByText('3'));
+    expect(screen.getByText('5 × 3 = 15')).toBeTruthy();
+    fireEvent.click(screen.getByText('DEAL'));
+    expect(document.querySelectorAll('.seat').length).toBe(3);
+    expect(screen.getByText('Total play').parentElement!.textContent).toContain('15');
+  });
+
   it('runs drill reps with graded feedback', async () => {
     // Seed a tracked mistake so drill has a weak spot to target.
     localStorage.setItem(

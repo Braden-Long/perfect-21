@@ -21,9 +21,13 @@ were actually worth.
   dealer cards top-center and your fanned hand low-center with total badges, a betting spot
   with a chip selector (undo / ×2 / DEAL), and colored decision squares. Keyboard: `H` `S`
   `D` `P` `R` for actions, `1`–`5` to stage chips, space to deal.
-- **A play-chip bankroll** (1,000 chips, persistent in practice/competitive). Every bet,
-  double and split moves real chips; going broke offers a rebuy — and counts it, because even
-  perfect play faces a house edge. No real money exists anywhere in the system.
+- **A play-chip bankroll** (1,000 chips, persistent in practice/competitive) with real table
+  limits: 5-chip minimum, 500 maximum per spot. Every bet, double and split moves real chips;
+  dropping below the minimum offers a rebuy — and counts it, because even perfect play faces
+  a house edge. No real money exists anywhere in the system.
+- **Multi-spot play** in practice and counting modes: spread the same bet across up to three
+  betting spots, played right to left with the camera easing in on whichever hand is acting —
+  scored modes (competitive/endless) stay single-seat so runs stay comparable.
 - **Every decision is graded** against basic strategy the instant you make it, with a popup
   explaining *why* the correct play is correct — plus the live expected value of every action
   you could have taken, computed for the exact cards on the table.

@@ -17,6 +17,8 @@ export interface HandState {
   fromSplit: boolean;
   splitAces: boolean;
   done: boolean;
+  /** Which betting spot this hand belongs to (splits inherit their seat). */
+  seat: number;
   result?: HandResult;
   net?: number;
 }
@@ -26,26 +28,33 @@ export type Phase = 'idle' | 'insurance' | 'player' | 'dealer' | 'settled';
 export interface RoundSummary {
   /** Net units won/lost across all hands this round (insurance included). */
   net: number;
-  /** Units initially wagered (always 1 — doubles/splits are extra risk, not extra rounds). */
-  initialBet: 1;
+  /** Units initially wagered: one per seat (doubles/splits are extra risk, not extra rounds). */
+  initialBet: number;
+  /** Net units per seat, insurance included, for per-initial-bet accounting. */
+  seatNets: number[];
   hands: HandState[];
   dealerCards: Card[];
   dealerBlackjack: boolean;
   playerBlackjack: boolean;
 }
 
+/** Max hands one seat can split into. */
 const MAX_HANDS = 4;
+export const MAX_SEATS = 3;
 
 /**
- * One seat of blackjack against the dealer. Owns dealing, the player-turn
- * hand cursor, dealer resolution and settlement. Decision grading lives in
- * the Strategy class; the UI asks for a recommendation before calling act().
+ * One round of blackjack against the dealer, over one or more seats. Owns
+ * dealing, the player-turn hand cursor (seats play in order, splits in
+ * place), dealer resolution and settlement. Decision grading lives in the
+ * Strategy class; the UI asks for a recommendation before calling act().
  */
 export class Round {
   readonly rules: Rules;
   private source: CardSource;
   /** Offer insurance on an ace upcard (peek games only). Off for pure basic-strategy modes. */
   readonly offerInsurance: boolean;
+  /** Betting spots in play; every seat posts the same 1-unit initial bet. */
+  readonly seats: number;
 
   phase: Phase = 'idle';
   hands: HandState[] = [];
@@ -58,14 +67,29 @@ export class Round {
   /** Units won/lost on the insurance side bet: +1 (dealer BJ), −0.5, or 0. */
   insuranceNet = 0;
 
-  constructor(rules: Rules, source: CardSource, opts?: { offerInsurance?: boolean }) {
+  constructor(rules: Rules, source: CardSource, opts?: { offerInsurance?: boolean; seats?: number }) {
     this.rules = rules;
     this.source = source;
     this.offerInsurance = opts?.offerInsurance ?? false;
+    this.seats = Math.min(Math.max(opts?.seats ?? 1, 1), MAX_SEATS);
   }
 
-  private newHand(cards: Card[], fromSplit = false, splitAces = false): HandState {
-    return { cards, bet: 1, doubled: false, surrendered: false, fromSplit, splitAces, done: false };
+  private newHand(cards: Card[], seat: number, fromSplit = false, splitAces = false): HandState {
+    return {
+      cards,
+      bet: 1,
+      doubled: false,
+      surrendered: false,
+      fromSplit,
+      splitAces,
+      done: false,
+      seat,
+    };
+  }
+
+  /** A natural: two-card 21 on a hand that isn't the child of a split. */
+  private isNatural(hand: HandState): boolean {
+    return !hand.fromSplit && handValue(cardRanks(hand.cards)).blackjack;
   }
 
   get activeHand(): HandState {
@@ -78,9 +102,12 @@ export class Round {
 
   deal(): void {
     if (this.source.needsShuffle) this.source.shuffle();
-    this.hands = [this.newHand([this.source.draw(), this.source.draw()])];
+    // Casino order: one card to each seat, dealer up, second card to each.
+    this.hands = [];
+    for (let s = 0; s < this.seats; s++) this.hands.push(this.newHand([this.source.draw()], s));
     this.active = 0;
     this.dealerCards = [this.source.draw()];
+    for (const hand of this.hands) hand.cards.push(this.source.draw());
     this.holeDealt = false;
     this.holeRevealed = false;
     this.dealerBlackjack = false;
@@ -105,10 +132,7 @@ export class Round {
         }
       }
     }
-    if (handValue(cardRanks(this.hands[0].cards)).blackjack) {
-      this.hands[0].done = true;
-      this.finishPlayerTurn();
-    }
+    this.settleNaturalsAndAdvance();
   }
 
   /** Resolve the insurance decision, then let the dealer peek and play on. */
@@ -122,10 +146,15 @@ export class Round {
       this.settle();
       return;
     }
-    if (handValue(cardRanks(this.hands[0].cards)).blackjack) {
-      this.hands[0].done = true;
-      this.finishPlayerTurn();
+    this.settleNaturalsAndAdvance();
+  }
+
+  /** Naturals need no decisions; move the cursor to the first live hand. */
+  private settleNaturalsAndAdvance(): void {
+    for (const hand of this.hands) {
+      if (this.isNatural(hand)) hand.done = true;
     }
+    this.advance();
   }
 
   availableActions(): Action[] {
@@ -145,12 +174,12 @@ export class Round {
       if (dblRule && (!hand.fromSplit || this.rules.das)) actions.push('double');
       if (
         ranks[0] === ranks[1] &&
-        this.hands.length < MAX_HANDS &&
+        this.hands.filter((h) => h.seat === hand.seat).length < MAX_HANDS &&
         !(hand.fromSplit && ranks[0] === 1)
       ) {
         actions.push('split');
       }
-      if (this.rules.surrender !== 'none' && !hand.fromSplit && this.hands.length === 1) {
+      if (this.rules.surrender !== 'none' && !hand.fromSplit) {
         actions.push('surrender');
       }
     }
@@ -185,8 +214,8 @@ export class Round {
       case 'split': {
         const [c1, c2] = hand.cards;
         const aces = c1.rank === 1;
-        const first = this.newHand([c1], true, aces);
-        const second = this.newHand([c2], true, aces);
+        const first = this.newHand([c1], hand.seat, true, aces);
+        const second = this.newHand([c2], hand.seat, true, aces);
         this.hands.splice(this.active, 1, first, second);
         first.cards.push(this.source.draw());
         if (aces) {
@@ -235,12 +264,13 @@ export class Round {
       this.settle();
       return;
     }
+    // The dealer only draws out when at least one hand still needs beating —
+    // naturals, busts and surrenders are already decided.
     const anyLive = this.hands.some((h) => {
       const v = handValue(cardRanks(h.cards));
-      return !h.surrendered && !v.bust;
+      return !h.surrendered && !v.bust && !this.isNatural(h);
     });
-    const playerBJ = this.hands.length === 1 && handValue(cardRanks(this.hands[0].cards)).blackjack;
-    if (anyLive && !playerBJ) {
+    if (anyLive) {
       for (;;) {
         const v = handValue(cardRanks(this.dealerCards));
         const stands =
@@ -253,11 +283,12 @@ export class Round {
   }
 
   private settle(): void {
-    this.insuranceNet = this.insured ? (this.dealerBlackjack ? 1 : -0.5) : 0;
+    // Insurance is half a unit per seat, decided once for the whole round.
+    this.insuranceNet = this.insured ? this.seats * (this.dealerBlackjack ? 1 : -0.5) : 0;
     const dv = handValue(cardRanks(this.dealerCards));
     for (const hand of this.hands) {
       const v = handValue(cardRanks(hand.cards));
-      const isBJ = !hand.fromSplit && this.hands.length === 1 && v.blackjack;
+      const isBJ = this.isNatural(hand);
       if (this.dealerBlackjack) {
         if (isBJ) {
           hand.result = 'push';
@@ -298,14 +329,20 @@ export class Round {
   summary(): RoundSummary {
     if (this.phase !== 'settled') throw new Error('round not settled');
     const net = this.hands.reduce((s, h) => s + (h.net ?? 0), 0) + this.insuranceNet;
+    const seatNets = Array.from({ length: this.seats }, (_, seat) => {
+      const handsNet = this.hands
+        .filter((h) => h.seat === seat)
+        .reduce((s, h) => s + (h.net ?? 0), 0);
+      return handsNet + this.insuranceNet / this.seats;
+    });
     return {
       net,
-      initialBet: 1,
+      initialBet: this.seats,
+      seatNets,
       hands: this.hands,
       dealerCards: this.dealerCards,
       dealerBlackjack: this.dealerBlackjack,
-      playerBlackjack:
-        this.hands.length === 1 && handValue(cardRanks(this.hands[0].cards)).blackjack,
+      playerBlackjack: this.hands.some((h) => this.isNatural(h)),
     };
   }
 }

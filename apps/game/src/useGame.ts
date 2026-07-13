@@ -35,10 +35,14 @@ export const DECISION_SECONDS = 10;
 /** Endless runs start on a short stack: bust out or slip once and it's over. */
 export const ENDLESS_BANKROLL = 100;
 export const CHIP_DENOMS = [1, 5, 25, 100, 500];
+/** Table limits, per betting spot. Below the minimum you can't play — rebuy or bust. */
+export const TABLE_MIN_BET = 5;
 export const TABLE_MAX_BET = 500;
-const DEFAULT_BET = 5;
+const DEFAULT_BET = TABLE_MIN_BET;
+/** How many betting spots a player can spread across (practice/counting only). */
+export const MAX_TABLE_SEATS = 3;
 /** Counting mode's betting unit: the 5-chip table minimum. Spread is graded in these. */
-export const COUNTING_UNIT = 5;
+export const COUNTING_UNIT = TABLE_MIN_BET;
 
 export interface Feedback {
   id: number;
@@ -75,7 +79,12 @@ export interface Game {
   tablePhase: TablePhase;
   /** Play chips available right now (persistent roll, or the endless run stack). */
   bankroll: number;
-  /** Staged bet while betting; the round's unit bet while playing. */
+  /** Betting spots in play this round (each posts the same bet). */
+  seats: number;
+  setSeats: (n: number) => void;
+  /** Multi-spot play is a practice/counting luxury; scored modes stay one seat. */
+  canMultiSeat: boolean;
+  /** Staged bet while betting; the round's unit bet while playing. Per spot. */
   bet: number;
   /** The unit bet of the round on the table (survives into the next betting phase). */
   roundBet: number;
@@ -120,6 +129,9 @@ export function useGame(profile: Profile, mode: Mode): Game {
     mode === 'endless' ? ENDLESS_BANKROLL : profile.bankroll
   );
   const [chipStack, setChipStack] = useState<number[]>([]);
+  const canMultiSeat = mode === 'practice' || mode === 'counting';
+  const [seats, setSeatsState] = useState(1);
+  const seatsRef = useRef(1);
   const [totalPlay, setTotalPlay] = useState(0);
   const [lastNet, setLastNet] = useState<number | null>(null);
   const [tape, setTape] = useState<boolean[]>([]);
@@ -179,7 +191,8 @@ export function useGame(profile: Profile, mode: Mode): Game {
     recordedRef.current = true;
     const summary = round.summary();
     sessionRef.current.addRound(summary);
-    profile.totalRounds++;
+    // Every seat is one initial bet — that's the unit all RTP math is quoted in.
+    profile.totalRounds += round.seats;
     profile.totalNet += summary.net;
     // Everything is face-up now — fold this round into the running count.
     baseRCRef.current += visibleCount(round);
@@ -188,21 +201,27 @@ export function useGame(profile: Profile, mode: Mode): Game {
     const unitBet = betRef.current;
     const returned =
       round.hands.reduce((s, h) => s + (h.bet + (h.net ?? 0)) * unitBet, 0) +
-      (round.insured ? (round.insuranceNet + 0.5) * unitBet : 0);
+      (round.insured ? (round.insuranceNet + 0.5 * round.seats) * unitBet : 0);
     const roll = bankrollRef.current + returned;
     setRoll(roll);
     setLastNet(summary.net * unitBet);
     setTablePhase('betting');
-    if (mode === 'endless' && roll < 1 && !endedRef.current) {
+    if (mode === 'endless' && roll < TABLE_MIN_BET && !endedRef.current) {
+      // Can't cover the table minimum: the run is over.
       endedRef.current = true;
       if (streakRef.current > profile.bestEndless) profile.bestEndless = streakRef.current;
       setEndReason('busted');
     } else if (!endedRef.current) {
       // Re-stage last bet for a one-click rebet, clamped to what's left.
-      setChipStack(unitBet >= 1 && unitBet <= roll ? [unitBet] : []);
+      setChipStack(
+        unitBet >= TABLE_MIN_BET && unitBet * seatsRef.current <= roll ? [unitBet] : []
+      );
     }
     // Payout sound lands after the verdict sound has had its say.
-    play(roll < 1 ? 'bust' : summary.net > 0 ? 'win' : summary.net === 0 ? 'push' : 'lose', 0.45);
+    play(
+      roll < TABLE_MIN_BET ? 'bust' : summary.net > 0 ? 'win' : summary.net === 0 ? 'push' : 'lose',
+      0.45
+    );
     saveProfile(profile);
     scheduleSync(profile);
   }, [mode, profile, setRoll]);
@@ -211,8 +230,9 @@ export function useGame(profile: Profile, mode: Mode): Game {
     const strategy = strategyRef.current;
     const shoe = shoeRef.current;
     const stake = chipStack.reduce((s, v) => s + v, 0);
+    const seatsN = canMultiSeat ? seatsRef.current : 1;
     if (!strategy || !shoe || endlessOver || tablePhase !== 'betting') return;
-    if (stake < 1 || stake > bankrollRef.current) return;
+    if (stake < TABLE_MIN_BET || stake * seatsN > bankrollRef.current) return;
     betRef.current = stake;
     play('deal');
 
@@ -226,12 +246,15 @@ export function useGame(profile: Profile, mode: Mode): Game {
       const minChips = ramp.minUnits * COUNTING_UNIT;
       const maxChips = ramp.maxUnits * COUNTING_UNIT;
       // Short stacks can't be asked to bet chips they don't have.
-      const allIn = bankrollRef.current < minChips && stake === bankrollRef.current;
+      const allIn =
+        bankrollRef.current < minChips * seatsN &&
+        stake === Math.floor(bankrollRef.current / seatsN);
       const correct = (stake >= minChips && stake <= maxChips) || allIn;
       const edgeNow = counterEdge(theoreticalRTP - 1, tcAtBet);
       const tcStr = `${tcAtBet >= 0 ? '+' : ''}${tcAtBet.toFixed(1)}`;
       const edgeStr = `${edgeNow >= 0 ? '+' : ''}${(edgeNow * 100).toFixed(1)}%`;
       const units = (n: number) => `${n} unit${n === 1 ? '' : 's'} (${n * COUNTING_UNIT})`;
+      const perSpot = seatsN > 1 ? ' per spot' : '';
       recordCountingDecision(profile, correct, 'bet');
       setTape((prev) => [...prev, correct]);
       betFeedback = {
@@ -240,10 +263,12 @@ export function useGame(profile: Profile, mode: Mode): Game {
         timedOut: false,
         chosen: 'stand',
         recommended: 'stand',
-        headline: `Bet check: TC ${tcStr} calls for ${units(ramp.units)} — you bet ${stake}`,
+        headline: `Bet check: TC ${tcStr} calls for ${units(ramp.units)}${perSpot} — you bet ${stake}${perSpot}`,
         explanation:
           ramp.units === 1
-            ? `Your edge at TC ${tcStr} is ${edgeStr} — the shoe belongs to the house, so feed it the table minimum and wait. A counter's money is made by betting small without the edge and big with it.`
+            ? edgeNow < 0
+              ? `Your edge at TC ${tcStr} is ${edgeStr} — the shoe belongs to the house, so feed it the table minimum and wait. A counter's money is made by betting small without the edge and big with it.`
+              : `At TC ${tcStr} your edge is ${edgeStr} — this rule set is generous off the top, but the ramp still keys off the count: table minimum until it climbs past +1, then ~2 units per point.`
             : `At TC ${tcStr} your edge is about ${edgeStr}. The ramp is ~2 units per true count above +1, capped at a 1–${ramp.spread} spread in a ${tableRules.decks}-deck game — anything from ${ramp.minUnits} to ${ramp.maxUnits} units is sound here.`,
         evs: {},
       };
@@ -258,11 +283,12 @@ export function useGame(profile: Profile, mode: Mode): Game {
     } else {
       setFreshShoe(false);
     }
-    setRoll(bankrollRef.current - stake);
-    setTotalPlay((t) => t + stake);
+    setRoll(bankrollRef.current - stake * seatsN);
+    setTotalPlay((t) => t + stake * seatsN);
     setLastNet(null);
     const round = new Round(strategy.rules, shoe, {
       offerInsurance: counting && strategy.rules.peek,
+      seats: seatsN,
     });
     roundRef.current = round;
     recordedRef.current = false;
@@ -271,7 +297,17 @@ export function useGame(profile: Profile, mode: Mode): Game {
     round.deal();
     settleIfDone();
     bump();
-  }, [bump, chipStack, counting, endlessOver, profile, settleIfDone, setRoll, tablePhase, tableRules, theoreticalRTP]);
+  }, [bump, canMultiSeat, chipStack, counting, endlessOver, profile, settleIfDone, setRoll, tablePhase, tableRules, theoreticalRTP]);
+
+  const setSeats = useCallback(
+    (n: number) => {
+      if (!canMultiSeat || tablePhase !== 'betting') return;
+      const clamped = Math.min(Math.max(Math.round(n), 1), MAX_TABLE_SEATS);
+      seatsRef.current = clamped;
+      setSeatsState(clamped);
+    },
+    [canMultiSeat, tablePhase]
+  );
 
   // Build (or fetch cached) strategy tables off the first paint.
   useEffect(() => {
@@ -428,7 +464,8 @@ export function useGame(profile: Profile, mode: Mode): Game {
     (v: number) => {
       if (tablePhase !== 'betting' || endlessOver) return;
       const total = chipStack.reduce((s, x) => s + x, 0);
-      if (total + v > bankrollRef.current || total + v > TABLE_MAX_BET) return;
+      const perSpotCap = Math.min(TABLE_MAX_BET, Math.floor(bankrollRef.current / seatsRef.current));
+      if (total + v > perSpotCap) return;
       play('chip');
       setChipStack([...chipStack, v]);
     },
@@ -449,12 +486,14 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const doubleStake = useCallback(() => {
     if (tablePhase !== 'betting' || endlessOver) return;
     const total = chipStack.reduce((s, x) => s + x, 0);
-    if (total < 1 || total * 2 > bankrollRef.current || total * 2 > TABLE_MAX_BET) return;
+    const perSpotCap = Math.min(TABLE_MAX_BET, Math.floor(bankrollRef.current / seatsRef.current));
+    if (total < 1 || total * 2 > perSpotCap) return;
     play('chip');
     setChipStack([...chipStack, total]);
   }, [chipStack, endlessOver, tablePhase]);
 
-  const canRebuy = mode !== 'endless' && tablePhase === 'betting' && bankroll < 1;
+  // Below the table minimum there's no legal bet left — offer the rebuy.
+  const canRebuy = mode !== 'endless' && tablePhase === 'betting' && bankroll < TABLE_MIN_BET;
 
   // Once the cut card is out, the next deal reshuffles — during the betting
   // phase the HUD (and the bet check) must reflect the fresh shoe, not the
@@ -512,9 +551,11 @@ export function useGame(profile: Profile, mode: Mode): Game {
       });
       play(correct ? 'correct' : 'incorrect');
       if (take) {
+        // Insurance is half the bet on every spot in play.
+        const cost = 0.5 * betRef.current * r.seats;
         play('chip', 0.1);
-        setRoll(bankrollRef.current - 0.5 * betRef.current);
-        setTotalPlay((t) => t + 0.5 * betRef.current);
+        setRoll(bankrollRef.current - cost);
+        setTotalPlay((t) => t + cost);
       }
       r.takeInsurance(take);
       settleIfDone();
@@ -565,6 +606,9 @@ export function useGame(profile: Profile, mode: Mode): Game {
     deadline,
     tablePhase,
     bankroll,
+    seats: canMultiSeat ? seats : 1,
+    setSeats,
+    canMultiSeat,
     bet,
     roundBet: betRef.current,
     totalPlay,
@@ -575,7 +619,11 @@ export function useGame(profile: Profile, mode: Mode): Game {
     doubleStake,
     deal,
     canDeal:
-      status === 'ready' && tablePhase === 'betting' && !endlessOver && bet >= 1 && bet <= bankroll,
+      status === 'ready' &&
+      tablePhase === 'betting' &&
+      !endlessOver &&
+      bet >= TABLE_MIN_BET &&
+      bet * (canMultiSeat ? seats : 1) <= bankroll,
     canRebuy,
     rebuy,
     rules: tableRules,
