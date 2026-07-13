@@ -186,6 +186,40 @@ describe('Perfect 21 app', () => {
     expect(screen.queryByText('RC')).toBeNull();
   });
 
+  it('teaches counting fundamentals in the Learn to Count trainer', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('Learn to Count'));
+
+    // Drill 1 — tag cards: read the dealt card and answer its Hi-Lo tag.
+    expect(screen.getByText(/TAG THE CARD/)).toBeTruthy();
+    const face = document.querySelector('.trainer-card .card__corner--tl span')!.textContent!;
+    const tag = ['2', '3', '4', '5', '6'].includes(face)
+      ? '2 – 6'
+      : ['7', '8', '9'].includes(face)
+        ? '7 – 9'
+        : '10 J Q K A';
+    fireEvent.click(screen.getByText(tag).closest('button')!);
+    expect(screen.getByText('Streak').textContent).toContain('1');
+
+    // Drill 3 — true count: divide the shown RC by decks remaining.
+    fireEvent.click(screen.getByText('True count'));
+    const rc = Number(screen.getByText('Running count').parentElement!.querySelector('b')!.textContent);
+    const decks = Number(screen.getByText('Decks left').parentElement!.querySelector('b')!.textContent);
+    fireEvent.change(screen.getByLabelText('true count'), {
+      target: { value: (rc / decks).toFixed(1) },
+    });
+    fireEvent.click(screen.getByText('CALL IT'));
+    expect(screen.getByText(/Close enough to bet on/)).toBeTruthy();
+    expect(screen.getByText(/Exact:/)).toBeTruthy();
+
+    // Drill 2 — keep the count: speed/length settings gate the timed deal.
+    fireEvent.click(screen.getByText('Keep the count'));
+    expect(screen.getByText('SET THE DEAL')).toBeTruthy();
+    expect(screen.getByText('Dealer')).toBeTruthy();
+    expect(screen.getByText('Full deck − 1')).toBeTruthy();
+    expect(screen.getByText('DEAL')).toBeTruthy();
+  });
+
   it('shows a friendly offline notice on the leaderboard without a server', async () => {
     render(<App />);
     fireEvent.click(screen.getByText('Leaderboard'));

@@ -58,8 +58,10 @@ were actually worth.
 | **Endless** | A 100-chip run: one wrong decision **or busting out** ends it — longest streak wins |
 | **Drill** | Flashcard reps dealt from *your own mistake history* — no chips, pure decisions |
 | **Card Counting** | Its own few-deck shoe (default: double deck). Hi-Lo count HUD with your live edge, graded bet spread, Illustrious 18 / Fab 4 index plays, insurance at TC ≥ +3 — its own rank |
+| **Learn to Count** | Counting fundamentals, no chips or rank: tag cards at speed, keep the count through a rapid deal (up to a full-deck countdown), convert RC → true count in your head |
 
-Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`, `/#drill`, `/#counting`).
+Modes are deep-linkable (`/#practice`, `/#competitive`, `/#endless`, `/#drill`, `/#counting`,
+`/#learn`).
 
 ### Card counting mode
 
@@ -87,6 +89,12 @@ miss — the feedback explains both layers. Indices are the standard multi-deck 
 (the 11 vs A index is skipped under H17, where basic already doubles). Counting mode has a
 **separate rank and leaderboard** fed by all three skills — index plays, bet spread, insurance
 — broken out individually on the stats screen, and either rank can be reset independently.
+
+New to counting? **Learn to Count** (`/#learn`) drills the fundamentals in isolation, the way
+counters actually train: tag single cards against the clock, hold the running count through a
+rapid-fire deal at four speeds (including the classic full-deck countdown with one card held
+back, where a balanced deck betrays the hidden card), and convert running counts to true
+counts in your head. No chips, no rank — pure reps.
 
 ### Mistake memory
 

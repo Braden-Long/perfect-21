@@ -749,8 +749,11 @@ a {
 }
 
 .mode-card--counting {
-  grid-column: 1 / -1;
   background: linear-gradient(180deg, rgba(216, 179, 108, 0.14), rgba(13, 54, 38, 0.4));
+}
+
+.mode-card--learn {
+  background: linear-gradient(180deg, rgba(216, 179, 108, 0.07), rgba(13, 54, 38, 0.4));
 }
 
 /* ---------- counting HUD ---------- */
@@ -848,6 +851,223 @@ a {
   .count-panel__grid > div {
     min-width: 52px;
     padding: 0.25rem 0.5rem 0.3rem;
+  }
+}
+
+/* ---------- learn-to-count trainer ---------- */
+
+.trainer-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.trainer-seg {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.trainer-seg__btn {
+  border: 1px solid rgba(216, 179, 108, 0.4);
+  background: rgba(8, 10, 9, 0.6);
+  color: var(--ink-dim);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  transition: all 0.15s;
+}
+
+.trainer-seg__btn:hover {
+  color: var(--gold);
+}
+
+.trainer-seg__btn--on {
+  color: #241a08;
+  background: linear-gradient(180deg, #f4dfa8, #d8b36c);
+  border-color: #f2e0b4;
+  font-weight: 700;
+}
+
+.trainer-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  padding: 2rem 1rem 3rem;
+  text-align: center;
+}
+
+.trainer-score {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.trainer-score span {
+  border: 1px solid rgba(216, 179, 108, 0.4);
+  background: rgba(8, 10, 9, 0.7);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+
+.trainer-score b {
+  color: var(--gold);
+  margin-left: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trainer-card {
+  display: flex;
+  gap: 0.6rem;
+  scale: 1.35;
+  margin: 0.8rem 0;
+}
+
+.trainer-miss {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ff9c93;
+  background: rgba(8, 10, 9, 0.8);
+  border: 1px solid rgba(255, 118, 108, 0.5);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  animation: pop 0.25s backwards;
+}
+
+.trainer-note {
+  max-width: 420px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(238, 228, 198, 0.55);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.trainer-note--wide {
+  max-width: 520px;
+  font-size: 0.9rem;
+  color: rgba(238, 228, 198, 0.8);
+}
+
+.trainer-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 480px;
+  background: rgba(5, 7, 6, 0.85);
+  border-radius: 14px;
+  padding: 0.9rem 1.3rem;
+  border: 1px solid rgba(82, 216, 150, 0.6);
+  animation: pop 0.25s backwards;
+}
+
+.trainer-result--bad {
+  border-color: rgba(255, 118, 108, 0.6);
+}
+
+.trainer-result > b {
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  color: var(--good);
+}
+
+.trainer-result--bad > b {
+  color: #ff9c93;
+}
+
+.trainer-result span {
+  font-size: 0.85rem;
+  color: rgba(238, 228, 198, 0.85);
+  line-height: 1.45;
+}
+
+.trainer-options {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.trainer-answer {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.trainer-answer input {
+  width: 110px;
+  background: rgba(8, 10, 9, 0.85);
+  border: 2px solid rgba(216, 179, 108, 0.55);
+  border-radius: 12px;
+  color: var(--gold);
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.35rem 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trainer-answer input:focus {
+  outline: none;
+  border-color: #f2e0b4;
+}
+
+.trainer-tc {
+  display: flex;
+  gap: 0.7rem;
+}
+
+.trainer-tc > div {
+  min-width: 130px;
+  padding: 0.6rem 1.1rem 0.7rem;
+  border-radius: 14px;
+  border: 1px solid rgba(216, 179, 108, 0.5);
+  background: rgba(8, 10, 9, 0.8);
+  display: flex;
+  flex-direction: column;
+}
+
+.trainer-tc span {
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.trainer-tc b {
+  font-size: 1.9rem;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-btn {
+  width: 128px;
+}
+
+.tag-btn .decision__glyph {
+  font-size: 1.5rem;
+}
+
+@media (max-width: 760px) {
+  .trainer-tabs {
+    order: 5;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .trainer-card {
+    scale: 1.1;
   }
 }
 

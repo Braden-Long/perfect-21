@@ -9,6 +9,7 @@ import { LeaderboardScreen } from './components/LeaderboardScreen';
 import { SupportDialog } from './components/SupportDialog';
 import { AdminScreen } from './components/AdminScreen';
 import { DrillScreen } from './components/DrillScreen';
+import { CountTrainer } from './components/CountTrainer';
 import { HistoryScreen } from './components/HistoryScreen';
 import { RecoverScreen } from './components/RecoverScreen';
 import { loadProfile, saveProfile } from './profile';
@@ -19,6 +20,7 @@ type Screen =
   | { name: 'menu' }
   | { name: 'game'; mode: Mode }
   | { name: 'drill' }
+  | { name: 'learn' }
   | { name: 'history' }
   | { name: 'stats' }
   | { name: 'chart' }
@@ -36,6 +38,7 @@ const MODE_HASHES: Record<string, Mode> = {
 function screenForHash(hash: string): Screen | null {
   if (hash === '#admin') return { name: 'admin' };
   if (hash === '#drill') return { name: 'drill' };
+  if (hash === '#learn') return { name: 'learn' };
   if (hash.startsWith('#recover=')) return { name: 'recover', token: hash.slice('#recover='.length) };
   const mode = MODE_HASHES[hash];
   return mode ? { name: 'game', mode } : null;
@@ -89,6 +92,8 @@ export default function App() {
       return <GameScreen key={screen.mode} mode={screen.mode} onExit={backToMenu} />;
     case 'drill':
       return <DrillGameScreen onExit={backToMenu} />;
+    case 'learn':
+      return <CountTrainer onExit={backToMenu} />;
     case 'history':
       return (
         <HistoryScreen
@@ -113,7 +118,9 @@ export default function App() {
           <Menu
             profile={profile}
             onPlay={(mode) =>
-              setScreen(mode === 'drill' ? { name: 'drill' } : { name: 'game', mode })
+              setScreen(
+                mode === 'drill' || mode === 'learn' ? { name: mode } : { name: 'game', mode }
+              )
             }
             onHistory={() => setScreen({ name: 'history' })}
             onStats={() => setScreen({ name: 'stats' })}

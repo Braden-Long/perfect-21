@@ -3,7 +3,7 @@ import type { Mode } from '../useGame';
 import type { Profile } from '../profile';
 import { countingRankOf, rankOf, topMisses } from '../profile';
 
-type PlayChoice = Mode | 'drill';
+type PlayChoice = Mode | 'drill' | 'learn';
 
 // Learn on top, compete below: practice/drill are the front door.
 const MODES: Array<{ id: PlayChoice; name: string; desc: string }> = [
@@ -31,6 +31,11 @@ const MODES: Array<{ id: PlayChoice; name: string; desc: string }> = [
     id: 'counting',
     name: 'Card Counting',
     desc: '', // built per-profile below: the counting shoe size is configurable
+  },
+  {
+    id: 'learn',
+    name: 'Learn to Count',
+    desc: 'Counting fundamentals, no chips: tag cards at speed, hold the count through a fast deal, turn it into a true count.',
   },
 ];
 
