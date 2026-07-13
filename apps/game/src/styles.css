@@ -392,14 +392,14 @@ a {
 }
 
 .bet-spot--open {
-  min-height: calc(96 * var(--u));
-  min-width: calc(96 * var(--u));
+  min-height: calc(86 * var(--u));
+  min-width: calc(86 * var(--u));
 }
 
 .bet-spot__ring {
   position: absolute;
-  width: calc(86 * var(--u));
-  height: calc(86 * var(--u));
+  width: calc(78 * var(--u));
+  height: calc(78 * var(--u));
   border-radius: 50%;
   border: 2px dashed rgba(255, 255, 255, 0.55);
   box-shadow:
@@ -497,6 +497,8 @@ a {
   filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.25));
 }
 
+/* The stack's single number: sits exactly where the top chip's face value
+   would be, sized like one. */
 .chip-stack__amount {
   position: absolute;
   left: 0;
@@ -505,10 +507,10 @@ a {
   height: var(--chip-size, var(--chip));
   display: grid;
   place-items: center;
-  font-weight: 900;
-  font-size: 0.82rem;
+  font-weight: 800;
+  font-size: calc(var(--chip-size, var(--chip)) * 0.27);
   color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
@@ -2013,9 +2015,10 @@ a {
 /* ---------- small screens ---------- */
 
 @media (max-width: 760px) {
+  /* Narrow windows scale the whole scene down through the one --u token, so
+     cards, chips, rings and rack always keep their relative proportions. */
   :root {
-    --card-w: 62px;
-    --card-h: 88px;
+    --u: 0.62px;
   }
 
   .hud-top {
@@ -2033,11 +2036,6 @@ a {
   .hud-top__stats {
     gap: 0.7rem;
     font-size: 0.68rem;
-  }
-
-  .rack {
-    transform: translateX(-50%) scale(0.72);
-    transform-origin: top center;
   }
 
   .felt-text__big {

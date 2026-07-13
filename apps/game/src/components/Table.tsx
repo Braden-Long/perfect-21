@@ -88,10 +88,10 @@ const CHIP_CLASS: Record<number, string> = {
   500: 'chip--500',
 };
 
-function ChipFace({ value }: { value: number }) {
+function ChipFace({ value, blank = false }: { value: number; blank?: boolean }) {
   return (
     <span className={`chip ${CHIP_CLASS[value] ?? 'chip--1'}`}>
-      <span className="chip__inner">{value}</span>
+      <span className="chip__inner">{blank ? '' : value}</span>
     </span>
   );
 }
@@ -112,14 +112,17 @@ function chipsFor(amount: number): number[] {
 function ChipStack({ amount, label }: { amount: number; label?: boolean }) {
   if (amount < 1) return null;
   const chips = chipsFor(amount);
+  const labeled = label !== false;
+  // A labeled stack shows exactly one number: the total, printed on the top
+  // chip where a face value would be. Never two numbers on one chip.
   return (
     <span className="chip-stack" style={{ ['--n' as string]: chips.length }}>
       {chips.map((v, i) => (
         <span key={i} className="chip-stack__layer" style={{ ['--i' as string]: i }}>
-          <ChipFace value={v} />
+          <ChipFace value={v} blank={labeled} />
         </span>
       ))}
-      {label !== false && <span className="chip-stack__amount">{fmtChips(amount)}</span>}
+      {labeled && <span className="chip-stack__amount">{fmtChips(amount)}</span>}
     </span>
   );
 }
