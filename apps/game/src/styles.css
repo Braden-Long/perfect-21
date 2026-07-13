@@ -457,8 +457,7 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-.chip--1 { --c: #aab3bd; }
-.chip--1 .chip__inner { color: #262b31; text-shadow: none; border-color: rgba(0, 0, 0, 0.3); }
+.chip--1 { --c: #3a67c9; }
 .chip--5 { --c: #cf413c; }
 .chip--25 { --c: #2c9c59; }
 .chip--100 { --c: #26292f; }
