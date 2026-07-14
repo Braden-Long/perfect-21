@@ -162,8 +162,9 @@ export function DealerRack() {
  * deal is a reshuffle.
  */
 export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
-  const level = Math.max(0.05, Math.min(1, fill));
-  const thickness = 32 + (Math.min(decks, 8) / 8) * 46;
+  const level = Math.max(0.04, Math.min(1, fill));
+  // Cards stand on edge, packed along the shoe: more decks = a longer pack.
+  const packScale = 0.32 + (Math.min(decks, 8) / 8) * 0.58;
   const toCut = Math.round(Math.max(0, level - 0.25) * decks * 52);
   return (
     <div
@@ -175,14 +176,12 @@ export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
       }
     >
       <div className="shoe__well">
-        <div
-          className="shoe__brick"
-          style={{ width: `${level * 100}%`, height: `${thickness}%` }}
-        />
-        <div
-          className="shoe__cut"
-          style={{ left: `${Math.min(25, level * 100)}%`, height: `${thickness + 12}%` }}
-        />
+        <div className="shoe__brick" style={{ width: `${level * packScale * 100}%` }}>
+          {/* the red cut card, standing in the pack at the 75% penetration mark */}
+          {level > 0.27 && (
+            <span className="shoe__cut" style={{ left: `${(0.25 / level) * 100}%` }} />
+          )}
+        </div>
       </div>
       <div className="shoe__shell" />
     </div>

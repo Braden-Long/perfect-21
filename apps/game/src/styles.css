@@ -238,7 +238,7 @@ a {
     0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-/* Dealing shoe: acrylic wedge, live card brick, red cut card at penetration. */
+/* Dealing shoe: cards standing on edge, dealt from the left mouth. */
 .shoe {
   position: absolute;
   top: 2.5%;
@@ -250,45 +250,64 @@ a {
 
 .shoe__well {
   position: absolute;
-  inset: calc(7 * var(--u)) calc(8 * var(--u)) calc(9 * var(--u)) calc(16 * var(--u));
+  inset: calc(7 * var(--u)) calc(9 * var(--u)) calc(9 * var(--u)) calc(14 * var(--u));
   overflow: hidden;
   border-radius: calc(4 * var(--u));
   background: linear-gradient(180deg, rgba(4, 8, 6, 0.5), rgba(4, 8, 6, 0.25));
   box-shadow: inset 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.55);
 }
 
-/* the cards themselves — a brick of fine white layers, slumped toward the mouth */
+/* The pack: vertical card edges packed along the shoe, leaning back the way
+   a wedge holds them. Depletes toward the mouth (left) as cards deal out. */
 .shoe__brick {
   position: absolute;
-  left: 0;
-  bottom: 10%;
-  border-radius: 2px 4px 4px 2px;
-  background: repeating-linear-gradient(
-    0deg,
-    #fbfaf5 0 calc(1.7 * var(--u)),
-    #d5d0bf calc(1.7 * var(--u)) calc(2.6 * var(--u))
-  );
+  left: calc(7 * var(--u));
+  bottom: 14%;
+  height: 62%;
+  border-radius: 2px 3px 3px 2px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 30%),
+    repeating-linear-gradient(
+      90deg,
+      #f6f4ec 0 calc(1.8 * var(--u)),
+      #c6c0ae calc(1.8 * var(--u)) calc(2.7 * var(--u))
+    );
   box-shadow:
-    inset 0 calc(1.5 * var(--u)) 0 #ffffff,
-    inset calc(-2 * var(--u)) 0 calc(3 * var(--u)) rgba(0, 0, 0, 0.18),
+    inset 0 calc(1.5 * var(--u)) 0 rgba(255, 255, 255, 0.9),
     calc(2 * var(--u)) calc(2 * var(--u)) calc(5 * var(--u)) rgba(0, 0, 0, 0.35);
-  transform: skewY(-2deg);
-  transition: width 0.5s ease, height 0.3s;
+  transform: skewX(-9deg);
+  transform-origin: bottom left;
+  transition: width 0.5s ease;
 }
 
-/* the red cut card riding inside the brick at the 75% penetration mark */
+/* the back of the next card out, facing the mouth */
+.shoe__brick::before {
+  content: '';
+  position: absolute;
+  left: calc(-5.5 * var(--u));
+  top: -7%;
+  bottom: 0;
+  width: calc(5.5 * var(--u));
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.22) 0 1.5px, transparent 1.5px 4px),
+    linear-gradient(180deg, #35599f, #274a92);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), calc(-1 * var(--u)) 1px calc(3 * var(--u)) rgba(0, 0, 0, 0.35);
+}
+
+/* the red cut card standing in the pack */
 .shoe__cut {
   position: absolute;
-  bottom: 8%;
-  width: calc(3.4 * var(--u));
+  top: -4%;
+  bottom: 0;
+  width: calc(3 * var(--u));
   border-radius: 1px;
   background: linear-gradient(180deg, #e04a3d, #a52a20);
-  box-shadow: 0 0 calc(4 * var(--u)) rgba(0, 0, 0, 0.5), 0 0 1px #ff8d7f;
-  transform: skewY(-2deg);
-  transition: left 0.5s ease, height 0.3s;
+  box-shadow: 0 0 calc(3 * var(--u)) rgba(0, 0, 0, 0.45), 0 0 1px #ff8d7f;
+  transition: left 0.5s ease;
 }
 
-/* acrylic shell over everything, plus the roller at the mouth */
+/* acrylic shell over everything, plus the roller weight at the back */
 .shoe__shell {
   position: absolute;
   inset: 0;
@@ -304,12 +323,12 @@ a {
 .shoe__shell::before {
   content: '';
   position: absolute;
-  left: calc(2 * var(--u));
-  top: 16%;
+  right: calc(3 * var(--u));
+  top: 18%;
   width: calc(9 * var(--u));
-  height: 68%;
+  height: 64%;
   border-radius: calc(4 * var(--u));
-  background: linear-gradient(90deg, #10231a, #2a4636 55%, #0c1a13);
+  background: linear-gradient(90deg, #0c1a13, #2a4636 45%, #10231a);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
@@ -325,6 +344,18 @@ a {
   border: calc(2.5 * var(--u)) solid rgba(255, 255, 255, 0.32);
   background: linear-gradient(200deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
   box-shadow: 0 calc(10 * var(--u)) calc(22 * var(--u)) rgba(0, 0, 0, 0.45);
+}
+
+.discard:not(:has(.discard__stack))::after {
+  content: 'DISCARDS';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: calc(7.5 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .discard__stack {
