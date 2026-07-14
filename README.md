@@ -28,6 +28,11 @@ were actually worth.
 - **Multi-spot play** in practice and counting modes: spread the same bet across up to three
   betting spots, played right to left with the camera easing in on whichever hand is acting —
   scored modes (competitive/endless) stay single-seat so runs stay comparable.
+- **A live shoe you can read**: the card brick in the dealing shoe scales with the deck count,
+  visibly depletes as cards are dealt, and carries the red cut card at the 75% penetration
+  mark — when the brick meets the red card, the next deal reshuffles (hover it for the exact
+  card count). The discard tray fills to match, and every fresh table opens with a skippable
+  shuffle animation.
 - **Every decision is graded** against basic strategy the instant you make it, with a popup
   explaining *why* the correct play is correct — plus the live expected value of every action
   you could have taken, computed for the exact cards on the table.

@@ -5,7 +5,15 @@ import type { Profile } from '../profile';
 import { useDrill } from '../useDrill';
 import { cellLabel } from '../drill';
 import { CardView } from './CardView';
-import { DECISION_BUTTONS, FeltText, MuteButton, totalLabel } from './Table';
+import {
+  DECISION_BUTTONS,
+  DealShoe,
+  DealerRack,
+  DiscardTray,
+  FeltText,
+  MuteButton,
+  totalLabel,
+} from './Table';
 
 const ACTION_KEYS: Record<string, Action> = {
   h: 'hit',
@@ -83,13 +91,9 @@ export function DrillScreen({ profile, onExit }: { profile: Profile; onExit: () 
 
       <div className="table">
         <div className="table__felt">
-          <div className="rack" aria-hidden="true">
-            {[500, 100, 25, 5, 1, 5, 25, 100].map((v, i) => (
-              <span key={i} className={`rack__stack chip chip--${v}`} />
-            ))}
-          </div>
-          <div className="shoe" aria-hidden="true" />
-          <div className="discard" aria-hidden="true" />
+          <DealerRack />
+          <DealShoe decks={profile.rules.decks} fill={1} />
+          <DiscardTray dealt={0.3} />
           <FeltText rules={profile.rules} />
 
           <section className="dealer-spot">

@@ -7,6 +7,7 @@
 export type SoundName =
   | 'chip'
   | 'deal'
+  | 'shuffle'
   | 'correct'
   | 'incorrect'
   | 'win'
@@ -121,6 +122,16 @@ export function play(name: SoundName, delay = 0): void {
       noise(ac, t, 0.16, 0.5, 900, 0.8, 'lowpass');
       noise(ac, t + 0.02, 0.1, 0.35, 3200, 2);
       break;
+    case 'shuffle': {
+      // A riffle: an accelerating train of card ticks, then the square-up tap.
+      for (let i = 0; i < 18; i++) {
+        const dt = i * 0.052 - i * i * 0.0009;
+        noise(ac, t + dt, 0.02, 0.45, 2400 + (i % 4) * 420, 3.5);
+      }
+      noise(ac, t + 1.02, 0.09, 0.8, 650, 1, 'lowpass');
+      noise(ac, t + 1.13, 0.05, 0.45, 1900, 2.5);
+      break;
+    }
     case 'correct':
       // Gentle two-note "ding" up.
       tone(ac, t, 659, 0.11, 'sine', 0.8);

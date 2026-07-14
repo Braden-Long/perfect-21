@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Shoe, hiLoValue, trueCount } from '@perfect21/engine';
 import type { Card } from '@perfect21/engine';
 import { CardView } from './CardView';
-import { MuteButton } from './Table';
+import { DealShoe, DealerRack, DiscardTray, MuteButton } from './Table';
 import { play } from '../sound';
 
 /**
@@ -35,13 +35,9 @@ function Felt({ children }: { children: ReactNode }) {
   return (
     <div className="table">
       <div className="table__felt">
-        <div className="rack" aria-hidden="true">
-          {[500, 100, 25, 5, 1, 5, 25, 100].map((v, i) => (
-            <span key={i} className={`rack__stack chip chip--${v}`} />
-          ))}
-        </div>
-        <div className="shoe" aria-hidden="true" />
-        <div className="discard" aria-hidden="true" />
+        <DealerRack />
+        <DealShoe decks={6} fill={0.82} />
+        <DiscardTray dealt={0.18} />
         {children}
       </div>
     </div>

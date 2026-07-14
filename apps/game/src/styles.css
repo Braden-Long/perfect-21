@@ -104,9 +104,23 @@ a {
   height: 188vh;
   border-radius: 50%;
   /* Keep this cheap to rasterize: it's a viewport-sized ellipse. The leather
-     bumper is a plain border, the grain a single radial gradient. */
+     bumper is a plain border; the grain is broad-band gradients only (no
+     repeating patterns or spread shadows here — they freeze rasterization). */
   border: calc(26 * var(--u)) solid #241a12;
-  background: radial-gradient(100% 100% at 50% 30%, #8a5f36 62%, #7a5230 74%, #52341a 88%, #3a2410 96%);
+  background:
+    linear-gradient(
+      86deg,
+      rgba(46, 26, 8, 0) 0%,
+      rgba(46, 26, 8, 0.24) 11%,
+      rgba(0, 0, 0, 0) 21%,
+      rgba(94, 62, 28, 0.2) 34%,
+      rgba(0, 0, 0, 0) 45%,
+      rgba(42, 24, 8, 0.26) 61%,
+      rgba(0, 0, 0, 0) 72%,
+      rgba(88, 58, 26, 0.2) 85%,
+      rgba(0, 0, 0, 0) 95%
+    ),
+    radial-gradient(100% 100% at 50% 30%, #8a5f36 62%, #7a5230 74%, #52341a 88%, #3a2410 96%);
   box-shadow:
     0 40px 120px rgba(0, 0, 0, 0.7),
     inset 0 -8px 22px rgba(255, 235, 200, 0.16),
@@ -125,9 +139,12 @@ a {
   background:
     radial-gradient(60% 42% at 50% 40%, rgba(255, 255, 255, 0.05), transparent 70%),
     radial-gradient(90% 80% at 50% 22%, #2e8259 0%, #206546 42%, #134a32 74%, #0d3a25 100%);
+  /* rim → gold pinstripe → dark leather-edge seam → soft falloff → felt */
   box-shadow:
-    inset 0 0 0 calc(2.5 * var(--u)) rgba(226, 190, 120, 0.34),
-    inset 0 0 0 calc(9 * var(--u)) rgba(0, 0, 0, 0.18),
+    inset 0 0 0 calc(2.5 * var(--u)) rgba(226, 190, 120, 0.38),
+    inset 0 0 0 calc(7 * var(--u)) rgba(16, 10, 4, 0.5),
+    inset 0 0 0 calc(8 * var(--u)) rgba(255, 235, 200, 0.07),
+    inset 0 0 0 calc(16 * var(--u)) rgba(0, 0, 0, 0.16),
     inset 0 30px 110px rgba(0, 0, 0, 0.5),
     inset 0 -50px 140px rgba(0, 0, 0, 0.4);
 }
@@ -145,131 +162,269 @@ a {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: calc(6 * var(--u));
-  padding: calc(10 * var(--u)) calc(14 * var(--u)) calc(12 * var(--u));
-  border-radius: calc(10 * var(--u));
+  align-items: flex-end;
+  gap: calc(7 * var(--u));
+  padding: calc(12 * var(--u)) calc(15 * var(--u)) calc(11 * var(--u));
+  border-radius: calc(12 * var(--u));
   background:
-    linear-gradient(180deg, rgba(255, 235, 200, 0.12), rgba(0, 0, 0, 0.25)),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 6px),
-    linear-gradient(180deg, #7c5330, #4a2e16 70%, #34200e);
+    linear-gradient(180deg, rgba(255, 235, 200, 0.14), rgba(0, 0, 0, 0.05) 30%, rgba(0, 0, 0, 0.3)),
+    linear-gradient(180deg, #7c5330, #4a2e16 68%, #331f0d);
   box-shadow:
-    0 calc(10 * var(--u)) calc(24 * var(--u)) rgba(0, 0, 0, 0.55),
-    inset 0 2px 3px rgba(255, 255, 255, 0.22),
-    inset 0 -4px 8px rgba(0, 0, 0, 0.55);
+    0 calc(12 * var(--u)) calc(26 * var(--u)) rgba(0, 0, 0, 0.55),
+    inset 0 2px 2px rgba(255, 240, 210, 0.35),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
-/* One chip stack seen edge-on in its rack slot, with a visible top face. */
-.rack .rack__stack.chip {
-  position: relative;
-  width: calc(30 * var(--u));
-  height: calc(52 * var(--u));
-  border-radius: calc(15 * var(--u)) calc(15 * var(--u)) calc(4 * var(--u)) calc(4 * var(--u));
+/* one recessed slot holding a stack of individual chips, seen edge-on */
+.rack-slot {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: calc(0.8 * var(--u));
+  width: calc(31 * var(--u));
+  padding: calc(3 * var(--u)) calc(2.5 * var(--u)) calc(2.5 * var(--u));
+  border-radius: calc(4 * var(--u)) calc(4 * var(--u)) calc(3 * var(--u)) calc(3 * var(--u));
+  background: rgba(12, 6, 2, 0.55);
+  box-shadow:
+    inset 0 calc(3 * var(--u)) calc(6 * var(--u)) rgba(0, 0, 0, 0.65),
+    inset 0 -1px 1px rgba(255, 235, 200, 0.12);
+}
+
+/* a single chip on its edge: colored clay with white edge spots, shaded round */
+.rack-slot i {
+  height: calc(6.4 * var(--u));
+  border-radius: calc(2.6 * var(--u));
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.4), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.45)),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.5),
+      rgba(255, 255, 255, 0.1) 18%,
+      rgba(255, 255, 255, 0.22) 50%,
+      rgba(255, 255, 255, 0.08) 82%,
+      rgba(0, 0, 0, 0.55)
+    ),
     repeating-linear-gradient(
-      180deg,
-      var(--c, #999) 0 calc(5.5 * var(--u)),
-      #efece2 calc(5.5 * var(--u)) calc(7.5 * var(--u))
+      90deg,
+      var(--c, #999) 0 calc(4.6 * var(--u)),
+      #f2efe4 calc(4.6 * var(--u)) calc(7.4 * var(--u))
     );
-  box-shadow:
-    inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-    0 2px 4px rgba(0, 0, 0, 0.4);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
 }
 
-.rack .rack__stack.chip::before {
-  content: '';
-  position: absolute;
-  top: calc(-4 * var(--u));
-  left: 0;
-  width: 100%;
-  height: calc(12 * var(--u));
+/* imperfect human stacking */
+.rack-slot i:nth-child(2n) {
+  translate: calc(1 * var(--u)) 0;
+}
+
+.rack-slot i:nth-child(3n) {
+  translate: calc(-0.8 * var(--u)) 0;
+}
+
+/* the visible face of the top chip */
+.rack-slot b {
+  height: calc(11 * var(--u));
+  margin-bottom: calc(-2 * var(--u));
   border-radius: 50%;
-  background:
-    radial-gradient(60% 60% at 50% 42%, color-mix(in srgb, var(--c, #999) 60%, white), var(--c, #999) 75%);
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.5), inset 0 -1px 2px rgba(0, 0, 0, 0.4);
+  border: calc(1.6 * var(--u)) dashed rgba(255, 255, 255, 0.45);
+  background: radial-gradient(
+    62% 62% at 50% 40%,
+    color-mix(in srgb, var(--c, #999) 58%, white),
+    var(--c, #999) 78%
+  );
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-/* Dealing shoe: an acrylic wedge holding a brick of cards, roller at the mouth. */
+/* Dealing shoe: acrylic wedge, live card brick, red cut card at penetration. */
 .shoe {
   position: absolute;
-  top: 3%;
-  right: 6%;
-  width: calc(150 * var(--u));
-  height: calc(78 * var(--u));
-  transform: rotate(9deg);
-  border-radius: calc(6 * var(--u));
-  background:
-    linear-gradient(105deg, transparent 0 12%, rgba(255, 255, 255, 0.06) 12% 100%);
-  box-shadow: 0 calc(12 * var(--u)) calc(28 * var(--u)) rgba(0, 0, 0, 0.5);
+  top: 2.5%;
+  right: 5%;
+  width: calc(172 * var(--u));
+  height: calc(84 * var(--u));
+  transform: rotate(8deg);
 }
 
-/* the card brick */
-.shoe::before {
-  content: '';
+.shoe__well {
   position: absolute;
-  left: 14%;
-  top: 12%;
-  width: 78%;
-  height: 66%;
-  border-radius: 3px;
-  transform: skewX(-14deg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(226, 222, 208, 0.95)),
-    #efece2;
-  background-blend-mode: normal;
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.12),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.08);
-  background-image: repeating-linear-gradient(
-      180deg,
-      #ffffff 0 2px,
-      #d9d4c4 2px 3px
-    );
+  inset: calc(7 * var(--u)) calc(8 * var(--u)) calc(9 * var(--u)) calc(16 * var(--u));
+  overflow: hidden;
+  border-radius: calc(4 * var(--u));
+  background: linear-gradient(180deg, rgba(4, 8, 6, 0.5), rgba(4, 8, 6, 0.25));
+  box-shadow: inset 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.55);
 }
 
-/* acrylic shell + the green cut card at the mouth */
-.shoe::after {
-  content: '';
+/* the cards themselves — a brick of fine white layers, slumped toward the mouth */
+.shoe__brick {
+  position: absolute;
+  left: 0;
+  bottom: 10%;
+  border-radius: 2px 4px 4px 2px;
+  background: repeating-linear-gradient(
+    0deg,
+    #fbfaf5 0 calc(1.7 * var(--u)),
+    #d5d0bf calc(1.7 * var(--u)) calc(2.6 * var(--u))
+  );
+  box-shadow:
+    inset 0 calc(1.5 * var(--u)) 0 #ffffff,
+    inset calc(-2 * var(--u)) 0 calc(3 * var(--u)) rgba(0, 0, 0, 0.18),
+    calc(2 * var(--u)) calc(2 * var(--u)) calc(5 * var(--u)) rgba(0, 0, 0, 0.35);
+  transform: skewY(-2deg);
+  transition: width 0.5s ease, height 0.3s;
+}
+
+/* the red cut card riding inside the brick at the 75% penetration mark */
+.shoe__cut {
+  position: absolute;
+  bottom: 8%;
+  width: calc(3.4 * var(--u));
+  border-radius: 1px;
+  background: linear-gradient(180deg, #e04a3d, #a52a20);
+  box-shadow: 0 0 calc(4 * var(--u)) rgba(0, 0, 0, 0.5), 0 0 1px #ff8d7f;
+  transform: skewY(-2deg);
+  transition: left 0.5s ease, height 0.3s;
+}
+
+/* acrylic shell over everything, plus the roller at the mouth */
+.shoe__shell {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  border: calc(2.5 * var(--u)) solid rgba(255, 255, 255, 0.35);
-  background:
-    linear-gradient(285deg, rgba(29, 61, 46, 0.95) 0 10%, transparent 10.5%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02) 60%);
-  box-shadow: inset 0 0 calc(14 * var(--u)) rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  border-radius: calc(7 * var(--u));
+  border: calc(2.5 * var(--u)) solid rgba(255, 255, 255, 0.38);
+  background: linear-gradient(158deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.03) 46%, rgba(255, 255, 255, 0.09));
+  box-shadow:
+    0 calc(12 * var(--u)) calc(26 * var(--u)) rgba(0, 0, 0, 0.5),
+    inset 0 0 calc(16 * var(--u)) rgba(255, 255, 255, 0.07);
 }
 
-/* Discard tray: clear holder with a short stack of face-down cards. */
+.shoe__shell::before {
+  content: '';
+  position: absolute;
+  left: calc(2 * var(--u));
+  top: 16%;
+  width: calc(9 * var(--u));
+  height: 68%;
+  border-radius: calc(4 * var(--u));
+  background: linear-gradient(90deg, #10231a, #2a4636 55%, #0c1a13);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Discard tray: clear holder that fills with face-down cards as the shoe empties. */
 .discard {
   position: absolute;
   top: 1.5%;
   left: 1.5%;
-  width: calc(88 * var(--u));
-  height: calc(64 * var(--u));
+  width: calc(92 * var(--u));
+  height: calc(66 * var(--u));
   transform: rotate(-7deg);
   border-radius: calc(6 * var(--u));
-  border: calc(2.5 * var(--u)) solid rgba(255, 255, 255, 0.3);
-  background: linear-gradient(200deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+  border: calc(2.5 * var(--u)) solid rgba(255, 255, 255, 0.32);
+  background: linear-gradient(200deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
   box-shadow: 0 calc(10 * var(--u)) calc(22 * var(--u)) rgba(0, 0, 0, 0.45);
 }
 
-.discard::before {
+.discard__stack {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  bottom: 9%;
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    0deg,
+    #e9e5d6 0 calc(1.6 * var(--u)),
+    #b9b4a2 calc(1.6 * var(--u)) calc(2.4 * var(--u))
+  );
+  box-shadow: 0 calc(2 * var(--u)) calc(5 * var(--u)) rgba(0, 0, 0, 0.4);
+  transition: height 0.5s ease;
+}
+
+/* the face-down top card of the discards */
+.discard__stack::after {
   content: '';
   position: absolute;
-  left: 10%;
-  bottom: 12%;
-  width: 80%;
-  height: 46%;
-  border-radius: 4px;
+  left: 0;
+  right: 0;
+  top: calc(-6 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.14) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 2px, transparent 2px 6px),
     linear-gradient(180deg, #35599f, #274a92);
-  box-shadow:
-    0 -3px 0 #e9e5d6,
-    0 -5px 0 #2d54a6,
-    0 -8px 0 #ece8da,
-    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+/* ---------- the opening shuffle ---------- */
+
+.shuffle-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  background: radial-gradient(58% 50% at 50% 46%, rgba(3, 6, 5, 0.42), transparent 72%);
+}
+
+.shuffle-stage {
+  position: relative;
+  width: calc(320 * var(--u));
+  height: calc(150 * var(--u));
+  animation: square-up 0.35s 1.75s both;
+}
+
+.shuffle-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(74 * var(--u));
+  height: calc(104 * var(--u));
+  margin: calc(-52 * var(--u)) 0 0 calc(-37 * var(--u));
+  border-radius: calc(6 * var(--u));
+  border: calc(2.5 * var(--u)) solid #f0ece0;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 3px, transparent 3px 8px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.16) 0 3px, transparent 3px 8px),
+    #2d54a6;
+  box-shadow: 0 calc(6 * var(--u)) calc(14 * var(--u)) rgba(0, 0, 0, 0.45);
+  animation: riffle 0.85s calc(var(--i) * 95ms) cubic-bezier(0.3, 0.9, 0.3, 1) both;
+}
+
+@keyframes riffle {
+  0% {
+    transform: translate(calc(var(--side) * 140 * var(--u)), calc(-26 * var(--u)))
+      rotate(calc(var(--side) * 26deg));
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(var(--i) * 0.7px), calc(var(--i) * -1.4px)) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes square-up {
+  40% {
+    transform: translateY(calc(-7 * var(--u))) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.shuffle-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.35em;
+  color: rgba(238, 228, 198, 0.9);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
+  animation: pop 0.4s 0.2s backwards;
 }
 
 /* lettering printed on the felt */
@@ -455,6 +610,17 @@ a {
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   font-variant-numeric: tabular-nums;
+}
+
+/* three-digit denominations shrink to stay inside the inner circle */
+.chip--wide .chip__inner {
+  font-size: calc(var(--chip-size, var(--chip)) * 0.205);
+  letter-spacing: -0.03em;
+}
+
+.chip-stack__amount--wide {
+  font-size: calc(var(--chip-size, var(--chip)) * 0.2);
+  letter-spacing: -0.02em;
 }
 
 .chip--1 { --c: #3a67c9; }

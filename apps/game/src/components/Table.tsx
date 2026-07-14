@@ -10,7 +10,7 @@ import {
   TABLE_MAX_BET,
   TABLE_MIN_BET,
 } from '../useGame';
-import { setSoundMuted, soundMuted } from '../sound';
+import { play, setSoundMuted, soundMuted } from '../sound';
 import { CardView } from './CardView';
 
 const ACTION_KEYS: Record<string, Action> = {
@@ -90,7 +90,7 @@ const CHIP_CLASS: Record<number, string> = {
 
 function ChipFace({ value, blank = false }: { value: number; blank?: boolean }) {
   return (
-    <span className={`chip ${CHIP_CLASS[value] ?? 'chip--1'}`}>
+    <span className={`chip ${CHIP_CLASS[value] ?? 'chip--1'} ${value >= 100 ? 'chip--wide' : ''}`}>
       <span className="chip__inner">{blank ? '' : value}</span>
     </span>
   );
@@ -122,8 +122,82 @@ function ChipStack({ amount, label }: { amount: number; label?: boolean }) {
           <ChipFace value={v} blank={labeled} />
         </span>
       ))}
-      {labeled && <span className="chip-stack__amount">{fmtChips(amount)}</span>}
+      {labeled && (
+        <span
+          className={`chip-stack__amount ${
+            fmtChips(amount).length > 3 ? 'chip-stack__amount--wide' : ''
+          }`}
+        >
+          {fmtChips(amount)}
+        </span>
+      )}
     </span>
+  );
+}
+
+/* ---------- set dressing: dealer rack, shoe, discard tray ---------- */
+
+const RACK_SLOTS = [500, 100, 25, 5, 1, 5, 25, 100];
+
+/** The dealer's bank: eight slots of individually stacked chips in a wood tray. */
+export function DealerRack() {
+  return (
+    <div className="rack" aria-hidden="true">
+      {RACK_SLOTS.map((v, i) => (
+        <span key={i} className={`rack-slot ${CHIP_CLASS[v]}`}>
+          {Array.from({ length: 7 }, (_, j) => (
+            <i key={j} />
+          ))}
+          <b />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The dealing shoe, live: the card brick thickens with the deck count,
+ * depletes as cards leave it, and carries the red cut card at the 75%
+ * penetration point — when the brick's edge meets the red card, the next
+ * deal is a reshuffle.
+ */
+export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
+  const level = Math.max(0.05, Math.min(1, fill));
+  const thickness = 32 + (Math.min(decks, 8) / 8) * 46;
+  const toCut = Math.round(Math.max(0, level - 0.25) * decks * 52);
+  return (
+    <div
+      className="shoe"
+      title={
+        toCut > 0
+          ? `${Math.round(level * decks * 52)} cards in the shoe — ${toCut} to the cut card, then a reshuffle`
+          : 'The cut card is out — next deal reshuffles'
+      }
+    >
+      <div className="shoe__well">
+        <div
+          className="shoe__brick"
+          style={{ width: `${level * 100}%`, height: `${thickness}%` }}
+        />
+        <div
+          className="shoe__cut"
+          style={{ left: `${Math.min(25, level * 100)}%`, height: `${thickness + 12}%` }}
+        />
+      </div>
+      <div className="shoe__shell" />
+    </div>
+  );
+}
+
+/** The discard tray fills up as the shoe empties. */
+export function DiscardTray({ dealt }: { dealt: number }) {
+  const level = Math.max(0, Math.min(1, dealt));
+  return (
+    <div className="discard" aria-hidden="true">
+      {level > 0.001 && (
+        <div className="discard__stack" style={{ height: `${6 + level * 50}%` }} />
+      )}
+    </div>
   );
 }
 
@@ -288,6 +362,16 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
   const playing = round !== null && round.phase === 'player' && !game.endlessOver;
   const insuring = round !== null && round.phase === 'insurance';
 
+  // A fresh table gets its shoe shuffled in front of the player — skippable.
+  const [shuffling, setShuffling] = useState(true);
+  useEffect(() => {
+    if (game.status !== 'ready') return;
+    play('shuffle');
+    const t = setTimeout(() => setShuffling(false), 2900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.status]);
+
   // After a round settles the cards linger for a beat, then get swept to the
   // discard so the next betting round starts on a clean felt (Evolution-style).
   const [swept, setSwept] = useState(false);
@@ -315,7 +399,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
         game.insure(e.key === 'y');
       } else if (action && playing && available.includes(action)) {
         game.act(action);
-      } else if ((e.key === ' ' || e.key === 'Enter') && game.canDeal) {
+      } else if ((e.key === ' ' || e.key === 'Enter') && game.canDeal && !shuffling) {
         e.preventDefault();
         game.deal();
       } else if (betting && e.key >= '1' && e.key <= '5') {
@@ -326,7 +410,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [available, betting, game, insuring, playing]);
+  }, [available, betting, game, insuring, playing, shuffling]);
 
   if (game.status === 'loading') {
     return (
@@ -422,13 +506,9 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
                 : 'scale(1)',
           }}
         >
-          <div className="rack" aria-hidden="true">
-            {[500, 100, 25, 5, 1, 5, 25, 100].map((v, i) => (
-              <span key={i} className={`rack__stack chip ${CHIP_CLASS[v]}`} />
-            ))}
-          </div>
-          <div className="shoe" aria-hidden="true" />
-          <div className="discard" aria-hidden="true" />
+          <DealerRack />
+          <DealShoe decks={r.decks} fill={game.decksLeft / r.decks} />
+          <DiscardTray dealt={1 - game.decksLeft / r.decks} />
           <FeltText rules={r} counting={mode === 'counting'} />
 
           <section className="dealer-spot">
@@ -545,6 +625,24 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             })}
           </section>
         </div>
+
+        {shuffling && (
+          <div className="shuffle-overlay">
+            <div className="shuffle-stage">
+              {Array.from({ length: 14 }, (_, i) => (
+                <span
+                  key={i}
+                  className="shuffle-card"
+                  style={{ ['--i' as string]: i, ['--side' as string]: i % 2 ? 1 : -1 }}
+                />
+              ))}
+            </div>
+            <div className="shuffle-label">SHUFFLING {r.decks * 52} CARDS</div>
+            <button className="btn btn--ghost" onClick={() => setShuffling(false)}>
+              Skip ›
+            </button>
+          </div>
+        )}
       </div>
 
       <footer className="hud-bottom">
@@ -563,7 +661,9 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
           {mode === 'competitive' && game.deadline && playing && (
             <TimerBar deadline={game.deadline} />
           )}
-          {insuring ? (
+          {shuffling ? (
+            <div className="prompt">FRESH SHOE ON THE TABLE…</div>
+          ) : insuring ? (
             <>
               <div className="prompt">INSURANCE? PAYS 2 TO 1</div>
               <div className="decisions">
