@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ACTION_LABEL, betRamp, cardRanks, handValue } from '@perfect21/engine';
 import type { Action, HandState, Rules } from '@perfect21/engine';
 import type { Game, Mode } from '../useGame';
@@ -165,14 +165,15 @@ export function DealerRack() {
 export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
   const level = Math.max(0.04, Math.min(1, fill));
   // The pack's LENGTH scales with the deck count — more decks, longer brick.
-  const fullW = (0.32 + (Math.min(decks, 8) / 8) * 0.58) * 158;
-  const w = Math.max(6, level * fullW);
+  const fullW = (0.32 + (Math.min(decks, 8) / 8) * 0.58) * 170;
+  const w = Math.max(7, level * fullW);
   // Cards ahead of the cut card get dealt; 25% of a full pack always sits
   // behind it, so it slides toward the mouth as the shoe runs down.
   const cutOffset = (level - 0.25) * fullW;
   const showCut = level > 0.265 && cutOffset > 2;
   const toCut = Math.round(Math.max(0, level - 0.25) * decks * 52);
   const slide = { transition: 'transform 0.5s ease' } as const;
+  const grow = { transition: 'width 0.5s ease' } as const;
   return (
     <div
       className="shoe"
@@ -182,36 +183,37 @@ export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
           : 'The cut card is out — next deal reshuffles'
       }
     >
-      <svg viewBox="0 0 240 132" role="presentation" focusable="false">
+      <svg viewBox="0 0 260 150" role="presentation" focusable="false">
         <defs>
           <radialGradient id="shoe-shadow">
             <stop offset="0" stopColor="#000" stopOpacity="0.4" />
             <stop offset="1" stopColor="#000" stopOpacity="0" />
           </radialGradient>
           <linearGradient id="shoe-acrylic" x1="0" y1="0" x2="0.55" y2="1">
-            <stop offset="0" stopColor="#fff" stopOpacity="0.3" />
-            <stop offset="0.45" stopColor="#fff" stopOpacity="0.05" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0.14" />
+            <stop offset="0" stopColor="#fff" stopOpacity="0.22" />
+            <stop offset="0.5" stopColor="#fff" stopOpacity="0.05" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0.12" />
           </linearGradient>
           <linearGradient id="shoe-roller" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0" stopColor="#0a0e12" />
-            <stop offset="0.45" stopColor="#313c46" />
+            <stop offset="0.45" stopColor="#39434c" />
             <stop offset="1" stopColor="#05080b" />
           </linearGradient>
+          {/* the pack's side: cool white cards in the acrylic's shadow */}
           <linearGradient id="shoe-sideshade" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#fff" stopOpacity="0.4" />
-            <stop offset="0.3" stopColor="#fff" stopOpacity="0.05" />
-            <stop offset="0.85" stopColor="#000" stopOpacity="0.1" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.22" />
+            <stop offset="0" stopColor="#fff" stopOpacity="0.55" />
+            <stop offset="0.25" stopColor="#fff" stopOpacity="0.08" />
+            <stop offset="0.75" stopColor="#20261f" stopOpacity="0.16" />
+            <stop offset="1" stopColor="#20261f" stopOpacity="0.38" />
           </linearGradient>
-          {/* card edges: thin vertical stripes, skewed by the group they fill */}
-          <pattern id="shoe-side" width="3.3" height="8" patternUnits="userSpaceOnUse">
-            <rect width="3.3" height="8" fill="#eee8d8" />
-            <rect x="2.3" width="1" height="8" fill="#b3aa92" />
+          <pattern id="shoe-side" width="2.2" height="8" patternUnits="userSpaceOnUse">
+            <rect width="2.2" height="8" fill="#e9ebe7" />
+            <rect x="1.5" width="0.7" height="8" fill="#c3c7c1" />
           </pattern>
-          <pattern id="shoe-top" width="3.3" height="8" patternUnits="userSpaceOnUse">
-            <rect width="3.3" height="8" fill="#faf7ee" />
-            <rect x="2.3" width="1" height="8" fill="#d8d2be" />
+          {/* the lit top edges of the cards: dense fine ticks */}
+          <pattern id="shoe-top" width="1.7" height="8" patternUnits="userSpaceOnUse">
+            <rect width="1.7" height="8" fill="#fbfbf8" />
+            <rect x="1.15" width="0.55" height="8" fill="#c6c9c3" />
           </pattern>
           <pattern
             id="shoe-back"
@@ -224,72 +226,84 @@ export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
           </pattern>
         </defs>
 
-        <ellipse cx="122" cy="117" rx="112" ry="11" fill="url(#shoe-shadow)" />
-        {/* far acrylic wall + floor */}
+        <ellipse cx="130" cy="133" rx="122" ry="10" fill="url(#shoe-shadow)" />
+
+        {/* far acrylic wall (behind the pack) + floor */}
         <path
-          d="M 12 104 L 26 112 L 222 112 L 222 30 L 204 25 L 20 92 Z"
-          transform="translate(13,-9)"
-          fill="rgba(215,240,230,0.1)"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="1"
+          d="M 6 137 L 238 137 L 244 22 L 72 55 L 52 118 Z"
+          transform="translate(14,-10)"
+          fill="rgba(220,240,232,0.08)"
+          stroke="rgba(255,255,255,0.3)"
+          strokeWidth="0.8"
+          strokeLinejoin="round"
         />
-        <polygon points="26,112 222,112 235,103 39,103" fill="rgba(6,14,10,0.42)" />
-        {/* far wall's top edge — behind the pack */}
-        <path d="M 217 16 L 33 83" stroke="rgba(255,255,255,0.4)" strokeWidth="0.7" fill="none" />
+        <polygon points="6,137 238,137 252,127 20,127" fill="rgba(6,14,10,0.35)" />
 
-        {/* the pack: side face (cards leaning back), lit top edges, and the
-            blue back of the front card facing the mouth */}
-        <g transform="matrix(1 0 -0.125 1 47.5 0)">
-          <rect x="0" y="52" width={w} height="56" fill="url(#shoe-side)" style={{ transition: 'width 0.5s ease' }} />
-          <rect x="0" y="52" width={w} height="56" fill="url(#shoe-sideshade)" style={{ transition: 'width 0.5s ease' }} />
-        </g>
-        <g transform="matrix(1 0 -1.4444 1 54 43)">
-          <rect x="0" y="0" width={w} height="9" fill="url(#shoe-top)" style={{ transition: 'width 0.5s ease' }} />
-        </g>
-        <polygon points="34,108 41,52 54,43 47,99" fill="#2d54a6" />
-        <polygon points="34,108 41,52 54,43 47,99" fill="url(#shoe-back)" opacity="0.8" />
-
-        {/* the red cut card, standing taller than the pack */}
-        {showCut && (
-          <g style={{ transform: `translateX(${cutOffset.toFixed(1)}px)`, ...slide }}>
-            <polygon points="34,108 36.6,108 43.6,46 41,46" fill="#d63b2f" />
-            <polygon points="41,46 43.6,46 56.6,37 54,37" fill="#ff7b66" />
+        {/* the pack rides a 12° ramp; cards lean back another 14° on it */}
+        <g transform="translate(20,130) rotate(-12)">
+          {/* side face: one thin edge per card */}
+          <g transform="matrix(1 0 -0.249 1 0 0)">
+            <rect x="24" y="-56" width={w} height="56" fill="url(#shoe-side)" style={grow} />
+            <rect x="24" y="-56" width={w} height="56" fill="url(#shoe-sideshade)" style={grow} />
           </g>
-        )}
+          {/* lit top edges, extruded into the view */}
+          <g transform="matrix(1 0 -15.8 6.9 29.7 -62.9)">
+            <rect x="24" y="0" width={w} height="1" fill="url(#shoe-top)" style={grow} />
+          </g>
 
-        {/* roller weight pressed against the back of the pack */}
-        <g style={{ transform: `translateX(${w.toFixed(1)}px)`, ...slide }}>
-          <polygon points="43,58 65,58 78,49 56,49" fill="#242e36" />
-          <polygon points="36,108 58,108 65,58 43,58" fill="url(#shoe-roller)" />
-          <circle cx="40" cy="102" r="4.5" fill="#05080b" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+          {/* the red cut card, standing taller than the pack */}
+          {showCut && (
+            <g style={{ transform: `translateX(${cutOffset.toFixed(1)}px)`, ...slide }}>
+              <g transform="matrix(1 0 -0.249 1 0 0)">
+                <rect x="24" y="-60" width="2.6" height="60" fill="#d63b2f" />
+              </g>
+              <polygon points="38.9,-60 41.5,-60 57.3,-66.9 54.7,-66.9" fill="#ff7b66" />
+            </g>
+          )}
+
+          {/* roller weight pressed against the back of the pack */}
+          <g style={{ transform: `translateX(${w.toFixed(1)}px)`, ...slide }}>
+            <ellipse cx="35.5" cy="-49" rx="8.5" ry="3.4" fill="#37424b" />
+            <rect x="27" y="-49" width="17" height="49" rx="6" fill="url(#shoe-roller)" />
+            <circle cx="35" cy="-6" r="5.2" fill="#05080b" stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+            <circle cx="36.6" cy="-7.6" r="1.6" fill="rgba(255,255,255,0.22)" />
+          </g>
+
+          {/* the next card out: the pack's front card, back facing the player,
+              sitting slightly proud at the mouth */}
+          <polygon
+            points="22,0 35.9,-56 54.1,-63.9 40.2,-7.9"
+            fill="#f2f0e8"
+            stroke="rgba(0,0,0,0.28)"
+            strokeWidth="0.7"
+            strokeLinejoin="round"
+          />
+          <polygon points="24.1,-4.2 36.2,-52.9 52,-59.8 39.9,-11" fill="#2d54a6" />
+          <polygon points="24.1,-4.2 36.2,-52.9 52,-59.8 39.9,-11" fill="url(#shoe-back)" />
         </g>
 
-        {/* near acrylic wall — the pack reads through it */}
+        {/* the clear wedge riser under the cards — its near edge climbs the slope */}
+        <polygon points="8,133.4 232,86 238,137 8,137" fill="rgba(255,255,255,0.1)" />
         <path
-          d="M 12 104 L 26 112 L 222 112 L 222 30 L 204 25 L 20 92 Z"
+          d="M 8 133.4 L 232 86"
+          stroke="rgba(255,255,255,0.55)"
+          strokeWidth="0.9"
+          fill="none"
+        />
+
+        {/* near acrylic shell: low mouth cut in front of the next card,
+            rising over the pack to the tall back */}
+        <path
+          d="M 6 137 L 238 137 L 244 22 L 72 55 L 52 118 Z"
           fill="url(#shoe-acrylic)"
           stroke="rgba(255,255,255,0.6)"
-          strokeWidth="1.5"
+          strokeWidth="1.4"
           strokeLinejoin="round"
         />
-
-        {/* the next card out: resting on the nose slope, back up, half out of
-            the mouth — bottom-left corner overhanging the lip */}
-        <polygon
-          points="16,100 64.7,81.7 77,73.2 28.4,91.5"
-          fill="#f2efe6"
-          stroke="rgba(0,0,0,0.25)"
-          strokeWidth="0.6"
-          strokeLinejoin="round"
-        />
-        <polygon points="20.3,98.1 62.2,82.4 72.7,75.1 30.9,90.8" fill="#2d54a6" />
-        <polygon points="20.3,98.1 62.2,82.4 72.7,75.1 30.9,90.8" fill="url(#shoe-back)" />
-
-        {/* acrylic edge glints */}
-        <path d="M 204 25 L 20 92" stroke="rgba(255,255,255,0.85)" strokeWidth="1" fill="none" />
+        {/* acrylic thickness edges */}
         <path
-          d="M 204 25 L 217 16 M 222 30 L 235 21 M 20 92 L 33 83"
-          stroke="rgba(255,255,255,0.5)"
+          d="M 244 22 L 258 12 M 6 137 L 20 127 M 72 55 L 86 45"
+          stroke="rgba(255,255,255,0.45)"
           strokeWidth="0.9"
           fill="none"
         />
@@ -311,13 +325,13 @@ export function DiscardTray({ dealt }: { dealt: number }) {
             <stop offset="1" stopColor="#000" stopOpacity="0" />
           </radialGradient>
           {/* card edges seen from the side: thin horizontal stripes */}
-          <pattern id="dc-side" width="8" height="3.2" patternUnits="userSpaceOnUse">
-            <rect width="8" height="3.2" fill="#eee8d8" />
-            <rect y="2.3" width="8" height="0.9" fill="#b3aa92" />
+          <pattern id="dc-side" width="8" height="3.4" patternUnits="userSpaceOnUse">
+            <rect width="8" height="3.4" fill="#f2eee1" />
+            <rect y="2.4" width="8" height="1" fill="#a89f88" />
           </pattern>
-          <pattern id="dc-side-dark" width="8" height="3.2" patternUnits="userSpaceOnUse">
-            <rect width="8" height="3.2" fill="#d8d1bd" />
-            <rect y="2.3" width="8" height="0.9" fill="#9a9078" />
+          <pattern id="dc-side-dark" width="8" height="3.4" patternUnits="userSpaceOnUse">
+            <rect width="8" height="3.4" fill="#d8d1bd" />
+            <rect y="2.4" width="8" height="1" fill="#8f866f" />
           </pattern>
           <pattern
             id="dc-back"
@@ -382,6 +396,33 @@ export function DiscardTray({ dealt }: { dealt: number }) {
                 style={{ transition: 'y 0.6s ease, height 0.6s ease' }}
               />
             </g>
+            {/* a few cards sit proud of the pile — it's a dump, not a machined block */}
+            {h > 22 && (
+              <rect
+                x="14"
+                y={120 - h * 0.58}
+                width="98"
+                height="2.6"
+                rx="1"
+                fill="#f7f4ea"
+                stroke="rgba(0,0,0,0.18)"
+                strokeWidth="0.4"
+                style={{ transition: 'y 0.6s ease' }}
+              />
+            )}
+            {h > 42 && (
+              <rect
+                x="20"
+                y={120 - h * 0.28}
+                width="94"
+                height="2.6"
+                rx="1"
+                fill="#efeadb"
+                stroke="rgba(0,0,0,0.18)"
+                strokeWidth="0.4"
+                style={{ transition: 'y 0.6s ease' }}
+              />
+            )}
             {/* top card, face down */}
             <g style={{ transform: `translateY(${(-h).toFixed(1)}px)`, transition: 'transform 0.6s ease' }}>
               <polygon points="18,120 110,120 123,111 31,111" fill="#f2efe6" />
@@ -581,14 +622,66 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
   const insuring = round !== null && round.phase === 'insurance';
 
   // A fresh table gets its shoe shuffled in front of the player — skippable.
+  // The same animation replays when the cut card has come out: the next DEAL
+  // shuffles first, then the cards come out of the new shoe.
   const [shuffling, setShuffling] = useState(true);
+  const [pendingDeal, setPendingDeal] = useState(false);
   useEffect(() => {
     if (game.status !== 'ready') return;
     play('shuffle');
-    const t = setTimeout(() => setShuffling(false), 2900);
-    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.status]);
+  useEffect(() => {
+    if (!shuffling || game.status !== 'ready') return;
+    const t = setTimeout(() => setShuffling(false), 2900);
+    return () => clearTimeout(t);
+  }, [shuffling, game.status]);
+  useEffect(() => {
+    if (!shuffling && pendingDeal) {
+      setPendingDeal(false);
+      game.deal();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffling, pendingDeal]);
+  const requestDeal = () => {
+    if (!game.canDeal || shuffling) return;
+    if (game.shufflePending) {
+      // The red card is out — shuffle in front of the player, then deal.
+      setPendingDeal(true);
+      setShuffling(true);
+      play('shuffle');
+    } else {
+      game.deal();
+    }
+  };
+
+  // When the cut card emerges mid-round, show it being pulled from the shoe
+  // and dropped on the discard tray.
+  const [cutFly, setCutFly] = useState<{ x: number; y: number; dx: number; dy: number } | null>(
+    null
+  );
+  const sawCut = useRef(game.shufflePending);
+  useEffect(() => {
+    if (game.shufflePending && !sawCut.current) {
+      const shoe = document.querySelector('.shoe');
+      const tray = document.querySelector('.discard');
+      const table = document.querySelector('.table');
+      if (shoe && tray && table) {
+        const s = shoe.getBoundingClientRect();
+        const t = tray.getBoundingClientRect();
+        const b = table.getBoundingClientRect();
+        const x = s.left - b.left + s.width * 0.12;
+        const y = s.top - b.top + s.height * 0.55;
+        setCutFly({
+          x,
+          y,
+          dx: t.left - b.left + t.width * 0.4 - x,
+          dy: t.top - b.top + t.height * 0.4 - y,
+        });
+      }
+    }
+    sawCut.current = game.shufflePending;
+  }, [game.shufflePending]);
 
   // After a round settles the cards linger for a beat, then get swept to the
   // discard so the next betting round starts on a clean felt (Evolution-style).
@@ -621,6 +714,21 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
     setSwept(false);
   }, [betting, settledNow, game.endlessOver, game.version]);
 
+  // The discard pile grows when the swept cards actually land on it (not at
+  // deal time), and empties the moment a reshuffle refills the shoe.
+  const dealtFrac = game.rules ? 1 - game.decksLeft / game.rules.decks : 0;
+  const [trayFrac, setTrayFrac] = useState(dealtFrac);
+  useEffect(() => {
+    if (dealtFrac < trayFrac - 0.001) setTrayFrac(dealtFrac);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealtFrac]);
+  useEffect(() => {
+    if (!swept) return;
+    const t = setTimeout(() => setTrayFrac(dealtFrac), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swept]);
+
   const hint = useMemo(
     () => (mode === 'practice' && showHint && playing ? game.recommend() : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -637,7 +745,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
         game.act(action);
       } else if ((e.key === ' ' || e.key === 'Enter') && game.canDeal && !shuffling) {
         e.preventDefault();
-        game.deal();
+        requestDeal();
       } else if (betting && e.key >= '1' && e.key <= '5') {
         game.addChip(CHIP_DENOMS[Number(e.key) - 1]);
       } else if (betting && e.key === 'Backspace') {
@@ -744,12 +852,15 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
         >
           <DealerRack />
           <DealShoe decks={r.decks} fill={game.decksLeft / r.decks} />
-          <DiscardTray dealt={1 - game.decksLeft / r.decks} />
+          <DiscardTray dealt={trayFrac} />
+          {game.shufflePending && !shuffling && (
+            <div className="shoe-note">CUT CARD OUT — SHUFFLE BEFORE THE NEXT DEAL</div>
+          )}
           <FeltText rules={r} counting={mode === 'counting'} />
 
           <section className="dealer-spot">
             {round && round.dealerCards.length > 0 && (
-              <div className={swept ? 'swept' : ''}>
+              <div className={swept && settled ? 'swept' : ''}>
                 <div className="cards cards--dealer">
                   {/* Casino deal order: the up card lands after every seat's
                       first card, the hole after every seat's second. */}
@@ -818,7 +929,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
                   style={{ left: `${x}%`, bottom: `${Math.abs(x - 50) * 0.45}%` }}
                 >
                   {seatHands.length > 0 && (
-                    <div className={`hands ${swept ? 'swept' : ''}`}>
+                    <div className={`hands ${swept && settled ? 'swept' : ''}`}>
                       {seatHands.map(({ hand, i }) => {
                         const isActive = playing && i === round!.active;
                         const result = settled ? resultLabel(hand, game.roundBet) : null;
@@ -881,6 +992,20 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             })}
           </section>
         </div>
+
+        {/* the cut card being pulled from the shoe and set on the discards */}
+        {cutFly && (
+          <div
+            className="cut-fly"
+            style={{
+              left: `${cutFly.x}px`,
+              top: `${cutFly.y}px`,
+              ['--cf-x' as string]: `${cutFly.dx.toFixed(1)}px`,
+              ['--cf-y' as string]: `${cutFly.dy.toFixed(1)}px`,
+            }}
+            onAnimationEnd={() => setCutFly(null)}
+          />
+        )}
 
         {shuffling && (
           <div className="shuffle-overlay">
@@ -997,7 +1122,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
                 >
                   ⟲
                 </button>
-                <button className="deal-btn" disabled={!game.canDeal} onClick={game.deal}>
+                <button className="deal-btn" disabled={!game.canDeal} onClick={requestDeal}>
                   DEAL
                 </button>
                 <button

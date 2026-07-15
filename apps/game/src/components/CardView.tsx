@@ -9,22 +9,27 @@ export function CardView({ card, hidden, index }: { card: Card; hidden?: boolean
 
   // Cards fly out of the shoe: measure the run from the shoe's mouth to this
   // card's landing spot, in the card's own (possibly zoomed) coordinate space.
+  // Keyed on the card itself, because React reuses these elements from round
+  // to round — every new card must fly again, not just the first hand's.
   // No shoe on screen (small windows) falls back to a plain pop-in.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    el.classList.remove('card--dealt', 'card--pop', 'card--reveal');
     const shoe = document.querySelector('.shoe');
     const s = shoe?.getBoundingClientRect();
     const c = el.getBoundingClientRect();
     if (!s || !s.width || !c.width) {
+      void el.offsetWidth;
       el.classList.add('card--pop');
       return;
     }
     const scale = c.width / el.offsetWidth || 1;
-    el.style.setProperty('--fly-x', `${((s.left + s.width * 0.16 - c.left) / scale).toFixed(1)}px`);
-    el.style.setProperty('--fly-y', `${((s.top + s.height * 0.62 - c.top) / scale).toFixed(1)}px`);
+    el.style.setProperty('--fly-x', `${((s.left + s.width * 0.15 - c.left) / scale).toFixed(1)}px`);
+    el.style.setProperty('--fly-y', `${((s.top + s.height * 0.8 - c.top) / scale).toFixed(1)}px`);
+    void el.offsetWidth; // restart the animation on reused elements
     el.classList.add('card--dealt');
-  }, []);
+  }, [card]);
 
   // The hole card flips over in place — it doesn't get re-dealt.
   useLayoutEffect(() => {

@@ -241,10 +241,10 @@ a {
 /* Dealing shoe & discard tray — drawn as SVG, sized by the one --u token. */
 .shoe {
   position: absolute;
-  top: 2%;
-  right: 4%;
-  width: calc(200 * var(--u));
-  transform: rotate(5deg);
+  top: 1.5%;
+  right: 3.5%;
+  width: calc(218 * var(--u));
+  transform: rotate(4deg);
 }
 
 .discard {
@@ -265,6 +265,56 @@ a {
 
 .discard text {
   font-family: inherit;
+}
+
+/* warns that the red card came out — the next deal reshuffles first */
+.shoe-note {
+  position: absolute;
+  top: 17.5%;
+  right: 3%;
+  padding: 0.28em 0.85em;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 123, 102, 0.5);
+  background: rgba(120, 26, 18, 0.55);
+  color: #ffb9ad;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+/* the cut card, pulled from the shoe and dropped on the discards */
+.cut-fly {
+  position: absolute;
+  z-index: 5;
+  width: calc(52 * var(--u));
+  height: calc(74 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background: linear-gradient(165deg, #e8503f, #b02c1f 70%, #8f2118);
+  box-shadow:
+    0 calc(4 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  animation: cut-fly 1.25s cubic-bezier(0.4, 0.1, 0.4, 1) forwards;
+}
+
+@keyframes cut-fly {
+  0% {
+    translate: 0 0;
+    rotate: -24deg;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    translate: var(--cf-x, -40vw) var(--cf-y, 0px);
+    rotate: -6deg;
+    opacity: 0;
+  }
 }
 
 /* ---------- the opening shuffle ---------- */
@@ -1517,14 +1567,16 @@ a {
 
 .swept .card {
   translate: var(--sw-x, -40vw) var(--sw-y, -30vh);
-  rotate: -12deg;
-  scale: 0.3;
+  rotate: -14deg;
+  scale: 0.26;
   opacity: 0;
+  /* stay fully visible for the whole trip — only vanish as the card
+     actually drops onto the pile */
   transition:
-    translate 0.7s cubic-bezier(0.45, -0.05, 0.75, 0.5) var(--sw-d, 0ms),
-    rotate 0.7s ease-in var(--sw-d, 0ms),
-    scale 0.7s ease-in var(--sw-d, 0ms),
-    opacity 0.3s ease-in calc(var(--sw-d, 0ms) + 0.45s);
+    translate 0.8s cubic-bezier(0.5, 0.05, 0.55, 1) var(--sw-d, 0ms),
+    rotate 0.8s ease-in-out var(--sw-d, 0ms),
+    scale 0.8s ease-in-out var(--sw-d, 0ms),
+    opacity 0.2s linear calc(var(--sw-d, 0ms) + 0.62s);
 }
 
 .swept .total-badge,
