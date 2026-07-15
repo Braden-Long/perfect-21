@@ -156,16 +156,23 @@ export function DealerRack() {
 }
 
 /**
- * The dealing shoe, live: the card brick thickens with the deck count,
- * depletes as cards leave it, and carries the red cut card at the 75%
- * penetration point — when the brick's edge meets the red card, the next
- * deal is a reshuffle.
+ * The dealing shoe, drawn in a 3/4 view: a clear acrylic wedge holding a pack
+ * of cards on edge. The pack is anchored at the mouth (left) and depletes from
+ * the front, the roller weight advances behind it as cards come out, the red
+ * cut card rides at the 75% penetration mark, and the next card out rests on
+ * the nose slope with its back showing — like the real thing.
  */
 export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
   const level = Math.max(0.04, Math.min(1, fill));
-  // Cards stand on edge, packed along the shoe: more decks = a longer pack.
-  const packScale = 0.32 + (Math.min(decks, 8) / 8) * 0.58;
+  // The pack's LENGTH scales with the deck count — more decks, longer brick.
+  const fullW = (0.32 + (Math.min(decks, 8) / 8) * 0.58) * 158;
+  const w = Math.max(6, level * fullW);
+  // Cards ahead of the cut card get dealt; 25% of a full pack always sits
+  // behind it, so it slides toward the mouth as the shoe runs down.
+  const cutOffset = (level - 0.25) * fullW;
+  const showCut = level > 0.265 && cutOffset > 2;
   const toCut = Math.round(Math.max(0, level - 0.25) * decks * 52);
+  const slide = { transition: 'transform 0.5s ease' } as const;
   return (
     <div
       className="shoe"
@@ -175,27 +182,239 @@ export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
           : 'The cut card is out — next deal reshuffles'
       }
     >
-      <div className="shoe__well">
-        <div className="shoe__brick" style={{ width: `${level * packScale * 100}%` }}>
-          {/* the red cut card, standing in the pack at the 75% penetration mark */}
-          {level > 0.27 && (
-            <span className="shoe__cut" style={{ left: `${(0.25 / level) * 100}%` }} />
-          )}
-        </div>
-      </div>
-      <div className="shoe__shell" />
+      <svg viewBox="0 0 240 132" role="presentation" focusable="false">
+        <defs>
+          <radialGradient id="shoe-shadow">
+            <stop offset="0" stopColor="#000" stopOpacity="0.4" />
+            <stop offset="1" stopColor="#000" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="shoe-acrylic" x1="0" y1="0" x2="0.55" y2="1">
+            <stop offset="0" stopColor="#fff" stopOpacity="0.3" />
+            <stop offset="0.45" stopColor="#fff" stopOpacity="0.05" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0.14" />
+          </linearGradient>
+          <linearGradient id="shoe-roller" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#0a0e12" />
+            <stop offset="0.45" stopColor="#313c46" />
+            <stop offset="1" stopColor="#05080b" />
+          </linearGradient>
+          <linearGradient id="shoe-sideshade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fff" stopOpacity="0.4" />
+            <stop offset="0.3" stopColor="#fff" stopOpacity="0.05" />
+            <stop offset="0.85" stopColor="#000" stopOpacity="0.1" />
+            <stop offset="1" stopColor="#000" stopOpacity="0.22" />
+          </linearGradient>
+          {/* card edges: thin vertical stripes, skewed by the group they fill */}
+          <pattern id="shoe-side" width="3.3" height="8" patternUnits="userSpaceOnUse">
+            <rect width="3.3" height="8" fill="#eee8d8" />
+            <rect x="2.3" width="1" height="8" fill="#b3aa92" />
+          </pattern>
+          <pattern id="shoe-top" width="3.3" height="8" patternUnits="userSpaceOnUse">
+            <rect width="3.3" height="8" fill="#faf7ee" />
+            <rect x="2.3" width="1" height="8" fill="#d8d2be" />
+          </pattern>
+          <pattern
+            id="shoe-back"
+            width="7"
+            height="7"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <rect width="7" height="2" fill="rgba(255,255,255,0.18)" />
+          </pattern>
+        </defs>
+
+        <ellipse cx="122" cy="117" rx="112" ry="11" fill="url(#shoe-shadow)" />
+        {/* far acrylic wall + floor */}
+        <path
+          d="M 12 104 L 26 112 L 222 112 L 222 30 L 204 25 L 20 92 Z"
+          transform="translate(13,-9)"
+          fill="rgba(215,240,230,0.1)"
+          stroke="rgba(255,255,255,0.35)"
+          strokeWidth="1"
+        />
+        <polygon points="26,112 222,112 235,103 39,103" fill="rgba(6,14,10,0.42)" />
+        {/* far wall's top edge — behind the pack */}
+        <path d="M 217 16 L 33 83" stroke="rgba(255,255,255,0.4)" strokeWidth="0.7" fill="none" />
+
+        {/* the pack: side face (cards leaning back), lit top edges, and the
+            blue back of the front card facing the mouth */}
+        <g transform="matrix(1 0 -0.125 1 47.5 0)">
+          <rect x="0" y="52" width={w} height="56" fill="url(#shoe-side)" style={{ transition: 'width 0.5s ease' }} />
+          <rect x="0" y="52" width={w} height="56" fill="url(#shoe-sideshade)" style={{ transition: 'width 0.5s ease' }} />
+        </g>
+        <g transform="matrix(1 0 -1.4444 1 54 43)">
+          <rect x="0" y="0" width={w} height="9" fill="url(#shoe-top)" style={{ transition: 'width 0.5s ease' }} />
+        </g>
+        <polygon points="34,108 41,52 54,43 47,99" fill="#2d54a6" />
+        <polygon points="34,108 41,52 54,43 47,99" fill="url(#shoe-back)" opacity="0.8" />
+
+        {/* the red cut card, standing taller than the pack */}
+        {showCut && (
+          <g style={{ transform: `translateX(${cutOffset.toFixed(1)}px)`, ...slide }}>
+            <polygon points="34,108 36.6,108 43.6,46 41,46" fill="#d63b2f" />
+            <polygon points="41,46 43.6,46 56.6,37 54,37" fill="#ff7b66" />
+          </g>
+        )}
+
+        {/* roller weight pressed against the back of the pack */}
+        <g style={{ transform: `translateX(${w.toFixed(1)}px)`, ...slide }}>
+          <polygon points="43,58 65,58 78,49 56,49" fill="#242e36" />
+          <polygon points="36,108 58,108 65,58 43,58" fill="url(#shoe-roller)" />
+          <circle cx="40" cy="102" r="4.5" fill="#05080b" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+        </g>
+
+        {/* near acrylic wall — the pack reads through it */}
+        <path
+          d="M 12 104 L 26 112 L 222 112 L 222 30 L 204 25 L 20 92 Z"
+          fill="url(#shoe-acrylic)"
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+
+        {/* the next card out: resting on the nose slope, back up, half out of
+            the mouth — bottom-left corner overhanging the lip */}
+        <polygon
+          points="16,100 64.7,81.7 77,73.2 28.4,91.5"
+          fill="#f2efe6"
+          stroke="rgba(0,0,0,0.25)"
+          strokeWidth="0.6"
+          strokeLinejoin="round"
+        />
+        <polygon points="20.3,98.1 62.2,82.4 72.7,75.1 30.9,90.8" fill="#2d54a6" />
+        <polygon points="20.3,98.1 62.2,82.4 72.7,75.1 30.9,90.8" fill="url(#shoe-back)" />
+
+        {/* acrylic edge glints */}
+        <path d="M 204 25 L 20 92" stroke="rgba(255,255,255,0.85)" strokeWidth="1" fill="none" />
+        <path
+          d="M 204 25 L 217 16 M 222 30 L 235 21 M 20 92 L 33 83"
+          stroke="rgba(255,255,255,0.5)"
+          strokeWidth="0.9"
+          fill="none"
+        />
+      </svg>
     </div>
   );
 }
 
-/** The discard tray fills up as the shoe empties. */
+/** The discard tray: cards stack up flat, like the real holder, as the shoe empties. */
 export function DiscardTray({ dealt }: { dealt: number }) {
   const level = Math.max(0, Math.min(1, dealt));
+  const h = 4 + level * 78; // stack height in viewBox units
   return (
     <div className="discard" aria-hidden="true">
-      {level > 0.001 && (
-        <div className="discard__stack" style={{ height: `${6 + level * 50}%` }} />
-      )}
+      <svg viewBox="0 0 150 140" role="presentation" focusable="false">
+        <defs>
+          <radialGradient id="dc-shadow">
+            <stop offset="0" stopColor="#000" stopOpacity="0.38" />
+            <stop offset="1" stopColor="#000" stopOpacity="0" />
+          </radialGradient>
+          {/* card edges seen from the side: thin horizontal stripes */}
+          <pattern id="dc-side" width="8" height="3.2" patternUnits="userSpaceOnUse">
+            <rect width="8" height="3.2" fill="#eee8d8" />
+            <rect y="2.3" width="8" height="0.9" fill="#b3aa92" />
+          </pattern>
+          <pattern id="dc-side-dark" width="8" height="3.2" patternUnits="userSpaceOnUse">
+            <rect width="8" height="3.2" fill="#d8d1bd" />
+            <rect y="2.3" width="8" height="0.9" fill="#9a9078" />
+          </pattern>
+          <pattern
+            id="dc-back"
+            width="7"
+            height="7"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <rect width="7" height="2" fill="rgba(255,255,255,0.18)" />
+          </pattern>
+          <linearGradient id="dc-shade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#000" stopOpacity="0.22" />
+            <stop offset="0.18" stopColor="#000" stopOpacity="0" />
+            <stop offset="0.8" stopColor="#000" stopOpacity="0" />
+            <stop offset="1" stopColor="#000" stopOpacity="0.18" />
+          </linearGradient>
+        </defs>
+
+        <ellipse cx="73" cy="127" rx="66" ry="9" fill="url(#dc-shadow)" />
+        {/* back acrylic wall */}
+        <polygon
+          points="21,111 139,111 139,29 21,29"
+          fill="rgba(255,255,255,0.07)"
+          stroke="rgba(255,255,255,0.28)"
+          strokeWidth="0.8"
+        />
+        {/* base plate */}
+        <polygon
+          points="8,120 126,120 139,111 21,111"
+          fill="rgba(255,255,255,0.12)"
+          stroke="rgba(255,255,255,0.4)"
+          strokeWidth="0.8"
+        />
+        <rect x="8" y="120" width="118" height="7" fill="rgba(10,16,12,0.5)" />
+
+        {level > 0.005 && (
+          <>
+            {/* stack front face + right depth face grow with the pile */}
+            <rect
+              x="18"
+              y={120 - h}
+              width="92"
+              height={h}
+              fill="url(#dc-side)"
+              style={{ transition: 'y 0.6s ease, height 0.6s ease' }}
+            />
+            <rect
+              x="18"
+              y={120 - h}
+              width="92"
+              height={h}
+              fill="url(#dc-shade)"
+              style={{ transition: 'y 0.6s ease, height 0.6s ease' }}
+            />
+            <g transform="matrix(1 -0.6923 0 1 0 76.15)">
+              <rect
+                x="110"
+                y={120 - h}
+                width="13"
+                height={h}
+                fill="url(#dc-side-dark)"
+                style={{ transition: 'y 0.6s ease, height 0.6s ease' }}
+              />
+            </g>
+            {/* top card, face down */}
+            <g style={{ transform: `translateY(${(-h).toFixed(1)}px)`, transition: 'transform 0.6s ease' }}>
+              <polygon points="18,120 110,120 123,111 31,111" fill="#f2efe6" />
+              <polygon points="24.3,119.5 105.3,119.5 116.7,111.5 35.7,111.5" fill="#2d54a6" />
+              <polygon points="24.3,119.5 105.3,119.5 116.7,111.5 35.7,111.5" fill="url(#dc-back)" />
+            </g>
+          </>
+        )}
+
+        {/* low front wall — the stack reads through it */}
+        <rect
+          x="8"
+          y="94"
+          width="118"
+          height="26"
+          fill="rgba(255,255,255,0.1)"
+          stroke="rgba(255,255,255,0.5)"
+          strokeWidth="1.2"
+        />
+        {level <= 0.005 && (
+          <text
+            x="67"
+            y="112"
+            textAnchor="middle"
+            fontSize="10.5"
+            fontWeight="700"
+            letterSpacing="3"
+            fill="rgba(255,255,255,0.35)"
+          >
+            DISCARDS
+          </text>
+        )}
+      </svg>
     </div>
   );
 }
@@ -378,7 +597,25 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
   useEffect(() => {
     if (betting && settledNow && !game.endlessOver) {
       setSwept(false);
-      const t = setTimeout(() => setSwept(true), 2000);
+      const t = setTimeout(() => {
+        // Aim every card at the discard tray from wherever it sits right now,
+        // in its own coordinate space (the felt may be transformed).
+        const tray = document.querySelector('.discard');
+        if (tray) {
+          const tr = tray.getBoundingClientRect();
+          document.querySelectorAll<HTMLElement>('.table__felt .card').forEach((el, k) => {
+            const c = el.getBoundingClientRect();
+            if (!c.width) return;
+            const scale = c.width / el.offsetWidth || 1;
+            const dx = (tr.left + tr.width * 0.5 - (c.left + c.width / 2)) / scale;
+            const dy = (tr.top + tr.height * 0.55 - (c.top + c.height / 2)) / scale;
+            el.style.setProperty('--sw-x', `${dx.toFixed(1)}px`);
+            el.style.setProperty('--sw-y', `${dy.toFixed(1)}px`);
+            el.style.setProperty('--sw-d', `${k * 70}ms`);
+          });
+        }
+        setSwept(true);
+      }, 2000);
       return () => clearTimeout(t);
     }
     setSwept(false);
@@ -514,8 +751,15 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             {round && round.dealerCards.length > 0 && (
               <div className={swept ? 'swept' : ''}>
                 <div className="cards cards--dealer">
+                  {/* Casino deal order: the up card lands after every seat's
+                      first card, the hole after every seat's second. */}
                   {round.dealerCards.map((c, i) => (
-                    <CardView key={i} card={c} index={i} hidden={i === 1 && !round.holeRevealed} />
+                    <CardView
+                      key={i}
+                      card={c}
+                      index={i === 0 ? round.seats : i === 1 ? 2 * round.seats + 1 : i - 2}
+                      hidden={i === 1 && !round.holeRevealed}
+                    />
                   ))}
                 </div>
                 <div className="total-badge total-badge--dealer">
@@ -595,7 +839,20 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
                             )}
                             <div className="cards cards--player">
                               {hand.cards.map((c, j) => (
-                                <CardView key={j} card={c} index={j} />
+                                <CardView
+                                  key={j}
+                                  card={c}
+                                  // Initial two cards fly in casino order across
+                                  // the seats (seat 0 = rightmost, dealt first);
+                                  // hits and split hands come out immediately.
+                                  index={
+                                    hand.fromSplit || j >= 2
+                                      ? Math.max(0, j - 2)
+                                      : j === 0
+                                        ? seat
+                                        : round!.seats + 1 + seat
+                                  }
+                                />
                               ))}
                             </div>
                             <div className="hand__meta">
