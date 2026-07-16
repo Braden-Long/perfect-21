@@ -50,6 +50,8 @@ were actually worth.
   principles. The test suite pins the output to the BlackjackInfo charts.
 - **Meaningful stats**: theoretical RTP for your rules, actual RTP (what the cards paid — luck),
   your expected RTP (theory minus the EV your mistakes gave away), and deviation-from-optimal %.
+  Counting tables keep an entirely separate ledger (their own hands, net, RTP and per-skill
+  accuracy behind a toggle) — learning to count never drags down your basic-strategy record.
 - **A streak fire**: ten straight correct calls light a flame in the HUD with your run count
   burning inside it — and it gets hotter as the streak grows (amber → orange-red → crimson →
   blue-white at 50+). Works in every mode, drills included; counting mode's bet checks and

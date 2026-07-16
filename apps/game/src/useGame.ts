@@ -191,9 +191,16 @@ export function useGame(profile: Profile, mode: Mode): Game {
     recordedRef.current = true;
     const summary = round.summary();
     sessionRef.current.addRound(summary);
-    // Every seat is one initial bet — that's the unit all RTP math is quoted in.
-    profile.totalRounds += round.seats;
-    profile.totalNet += summary.net;
+    // Every seat is one initial bet — that's the unit all RTP math is quoted
+    // in. Counting tables book their own results so learning the count never
+    // skews the basic-strategy RTP stats.
+    if (counting) {
+      profile.countingRounds += round.seats;
+      profile.countingNet += summary.net;
+    } else {
+      profile.totalRounds += round.seats;
+      profile.totalNet += summary.net;
+    }
     // Everything is face-up now — fold this round into the running count.
     baseRCRef.current += visibleCount(round);
     // Return each hand's surviving stake + winnings, in chips. Everything the
@@ -582,7 +589,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
   // Competitive decision clock: reset whenever a new decision point appears.
   const decisionKey =
     round && round.phase === 'player' && tablePhase === 'playing' && !endlessOver
-      ? `${profile.totalRounds}-${round.active}-${round.activeHand.cards.length}-${round.hands.length}`
+      ? `${profile.totalRounds + profile.countingRounds}-${round.active}-${round.activeHand.cards.length}-${round.hands.length}`
       : null;
 
   useEffect(() => {

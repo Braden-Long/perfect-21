@@ -70,6 +70,9 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () => void }) {
   const strategy = useStrategy(profile.rules);
   const [, forceRender] = useState(0);
+  // Basic-strategy and counting stats are separate worlds: counting is
+  // high-variance by design and must not color the basic RTP numbers.
+  const [view, setView] = useState<'basic' | 'counting'>('basic');
   const rank = rankOf(profile);
   const countingRank = countingRankOf(profile);
 
@@ -91,6 +94,10 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
   const countingPlaysCorrect =
     profile.countingCorrect - profile.countingBetsCorrect - profile.countingInsCorrect;
   const pct = (num: number, den: number) => (den > 0 ? `${((num / den) * 100).toFixed(1)}%` : '—');
+  const cPlayed = profile.countingRounds > 0;
+  const cActualRTP = cPlayed ? 1 + profile.countingNet / profile.countingRounds : null;
+  const cAccuracy =
+    profile.countingDecisions > 0 ? profile.countingCorrect / profile.countingDecisions : null;
 
   return (
     <div className="room room--menu">
@@ -131,72 +138,121 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
           )}
         </div>
 
-        <div className="stat-grid">
-          <Stat
-            label="Theoretical RTP"
-            value={theoretical !== null ? `${(theoretical * 100).toFixed(2)}%` : '…'}
-            hint="perfect play, current rules"
-          />
-          <Stat
-            label="Your expected RTP"
-            value={expectedRTP !== null ? `${(expectedRTP * 100).toFixed(2)}%` : '—'}
-            hint="theory minus EV lost to your errors"
-          />
-          <Stat
-            label="Actual RTP"
-            value={actualRTP !== null ? `${(actualRTP * 100).toFixed(1)}%` : '—'}
-            hint="what the cards actually paid (luck)"
-          />
-          <Stat
-            label="Deviation from optimal"
-            value={accuracy !== null ? `${((1 - accuracy) * 100).toFixed(1)}%` : '—'}
-            hint={`${profile.lifetimeDecisions} lifetime decisions`}
-          />
-          <Stat label="Hands played" value={String(profile.totalRounds)} />
-          <Stat
-            label="Net units"
-            value={played ? `${profile.totalNet >= 0 ? '+' : ''}${profile.totalNet.toFixed(1)}` : '—'}
-            hint="per initial bet, all modes"
-          />
-          <Stat
-            label="Bankroll"
-            value={profile.bankroll.toLocaleString('en-US', { maximumFractionDigits: 1 })}
-            hint={
-              profile.rebuys > 0
-                ? `play chips · ${profile.rebuys} rebuy${profile.rebuys === 1 ? '' : 's'}`
-                : 'play chips — worthless by design'
-            }
-          />
-          <Stat label="Best endless streak" value={String(profile.bestEndless)} />
-          <Stat
-            label="Longest streak"
-            value={String(profile.bestStreak)}
-            hint="consecutive correct calls, any table mode"
-          />
-          <Stat
-            label="Decision accuracy"
-            value={accuracy !== null ? `${(accuracy * 100).toFixed(1)}%` : '—'}
-          />
-          {profile.countingDecisions > 0 && (
-            <>
+        <div className="stat-tabs">
+          <button
+            className={`stat-tab ${view === 'basic' ? 'stat-tab--on' : ''}`}
+            onClick={() => setView('basic')}
+          >
+            Basic strategy
+          </button>
+          <button
+            className={`stat-tab ${view === 'counting' ? 'stat-tab--on' : ''}`}
+            onClick={() => setView('counting')}
+          >
+            Card counting
+          </button>
+        </div>
+
+        {view === 'basic' ? (
+          <div className="stat-grid">
+            <Stat
+              label="Theoretical RTP"
+              value={theoretical !== null ? `${(theoretical * 100).toFixed(2)}%` : '…'}
+              hint="perfect play, current rules"
+            />
+            <Stat
+              label="Your expected RTP"
+              value={expectedRTP !== null ? `${(expectedRTP * 100).toFixed(2)}%` : '—'}
+              hint="theory minus EV lost to your errors"
+            />
+            <Stat
+              label="Actual RTP"
+              value={actualRTP !== null ? `${(actualRTP * 100).toFixed(1)}%` : '—'}
+              hint="what the cards actually paid (luck)"
+            />
+            <Stat
+              label="Deviation from optimal"
+              value={accuracy !== null ? `${((1 - accuracy) * 100).toFixed(1)}%` : '—'}
+              hint={`${profile.lifetimeDecisions} lifetime decisions`}
+            />
+            <Stat label="Hands played" value={String(profile.totalRounds)} hint="counting tables excluded" />
+            <Stat
+              label="Net units"
+              value={played ? `${profile.totalNet >= 0 ? '+' : ''}${profile.totalNet.toFixed(1)}` : '—'}
+              hint="per initial bet, basic-strategy tables"
+            />
+            <Stat
+              label="Bankroll"
+              value={profile.bankroll.toLocaleString('en-US', { maximumFractionDigits: 1 })}
+              hint={
+                profile.rebuys > 0
+                  ? `play chips · ${profile.rebuys} rebuy${profile.rebuys === 1 ? '' : 's'}`
+                  : 'play chips — worthless by design'
+              }
+            />
+            <Stat label="Best endless streak" value={String(profile.bestEndless)} />
+            <Stat
+              label="Longest streak"
+              value={String(profile.bestStreak)}
+              hint="consecutive correct calls, any table mode"
+            />
+            <Stat
+              label="Decision accuracy"
+              value={accuracy !== null ? `${(accuracy * 100).toFixed(1)}%` : '—'}
+            />
+          </div>
+        ) : profile.countingDecisions > 0 || cPlayed ? (
+          <>
+            <div className="stat-grid">
+              <Stat label="Hands played" value={String(profile.countingRounds)} hint="counting tables" />
+              <Stat
+                label="Net units"
+                value={
+                  cPlayed
+                    ? `${profile.countingNet >= 0 ? '+' : ''}${profile.countingNet.toFixed(1)}`
+                    : '—'
+                }
+                hint="per initial bet, counting tables"
+              />
+              <Stat
+                label="Actual RTP"
+                value={cActualRTP !== null ? `${(cActualRTP * 100).toFixed(1)}%` : '—'}
+                hint="bet the count well and this beats 100% over time"
+              />
+              <Stat
+                label="Counting accuracy"
+                value={cAccuracy !== null ? `${(cAccuracy * 100).toFixed(1)}%` : '—'}
+                hint={`${profile.countingDecisions} graded calls, all three skills`}
+              />
               <Stat
                 label="Index plays"
                 value={pct(countingPlaysCorrect, countingPlays)}
-                hint={`counting · ${countingPlays} I18 / Fab 4 calls`}
+                hint={`${countingPlays} I18 / Fab 4 calls`}
               />
               <Stat
                 label="Bet spread"
                 value={pct(profile.countingBetsCorrect, profile.countingBets)}
-                hint={`counting · ${profile.countingBets} bets vs the ramp`}
+                hint={`${profile.countingBets} bets vs the ramp`}
               />
               <Stat
                 label="Insurance"
                 value={pct(profile.countingInsCorrect, profile.countingIns)}
-                hint={`counting · ${profile.countingIns} calls at the +3 index`}
+                hint={`${profile.countingIns} calls at the +3 index`}
               />
-            </>
-          )}
-        </div>
+            </div>
+            <p className="stat__hint" style={{ marginBottom: '1rem' }}>
+              Counting stats live entirely apart from your basic-strategy record — index
+              deviations aren't errors there, and a cold learning streak here never touches
+              your RTP numbers. Swing away.
+            </p>
+          </>
+        ) : (
+          <p className="stat__hint" style={{ margin: '1.5rem 0' }}>
+            No counting rounds yet. The counting table deals a {profile.countingDecks}-deck
+            shoe, grades your bets against the ramp and your plays against the Illustrious 18
+            — and none of it touches your basic-strategy stats. Nothing to lose but the count.
+          </p>
+        )}
 
         <div className="tier-ladder">
           {RANK_TIERS.map((t) => (

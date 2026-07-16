@@ -32,7 +32,9 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   against gamblingcalc.com's deviations calculator: multi-deck S17 baseline, TC = RC ÷ decks
   remaining (exact, no flooring), trigger at TC ≥ index, insurance index +3. 11vA is s17Only.
   Counting-mode grading targets the index play; misses there must never feed the basic drill,
-  and EV bookkeeping stays basic-only (deviations aren't in the CD model).
+  and EV bookkeeping stays basic-only (deviations aren't in the CD model). Counting rounds/net
+  book into profile.countingRounds/countingNet — totalRounds/totalNet and every lifetime RTP
+  stat are basic-strategy-only (the stats screen splits the two behind a toggle).
 - Counting mode deals its own shoe (`profile.countingDecks`, default 2 — NOT `rules.decks`)
   and grades every initial bet against `betRamp`: 1 unit = 5 chips, ~2 units per TC above +1,
   spread capped at 8 (1–2 decks) / 12 (3+ decks), ±½ TC tolerance. Grade bets at the TC the

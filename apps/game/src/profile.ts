@@ -74,6 +74,13 @@ export interface Profile {
   countingBetsCorrect: number;
   countingIns: number;
   countingInsCorrect: number;
+  /**
+   * Counting tables keep their own round results: learning to count is
+   * high-variance by design, and its swings must never skew the
+   * basic-strategy RTP statistics.
+   */
+  countingRounds: number;
+  countingNet: number;
 }
 
 function fresh(): Profile {
@@ -99,6 +106,8 @@ function fresh(): Profile {
     countingBetsCorrect: 0,
     countingIns: 0,
     countingInsCorrect: 0,
+    countingRounds: 0,
+    countingNet: 0,
   };
 }
 
