@@ -169,6 +169,11 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
           />
           <Stat label="Best endless streak" value={String(profile.bestEndless)} />
           <Stat
+            label="Longest streak"
+            value={String(profile.bestStreak)}
+            hint="consecutive correct calls, any table mode"
+          />
+          <Stat
             label="Decision accuracy"
             value={accuracy !== null ? `${(accuracy * 100).toFixed(1)}%` : '—'}
           />

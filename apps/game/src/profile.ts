@@ -47,6 +47,8 @@ export interface Profile {
   totalNet: number;
   totalEVLoss: number;
   bestEndless: number;
+  /** Longest run of consecutive correct graded calls, across all table modes. */
+  bestStreak: number;
   /** Persistent play-chip balance (practice/competitive; endless runs use their own stack). */
   bankroll: number;
   /** Times the player went broke and refilled — a stat, not a shame. */
@@ -84,6 +86,7 @@ function fresh(): Profile {
     totalNet: 0,
     totalEVLoss: 0,
     bestEndless: 0,
+    bestStreak: 0,
     bankroll: STARTING_BANKROLL,
     rebuys: 0,
     misses: {},

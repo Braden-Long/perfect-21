@@ -602,6 +602,32 @@ function CountPanel({ game }: { game: Game }) {
   );
 }
 
+/* ---------- streak fire ---------- */
+
+/**
+ * The streak fire: appears at 10 straight correct calls and burns hotter as
+ * the run grows — amber, then orange-red, crimson at 35, blue-white at 50+.
+ */
+export function StreakFlame({ streak }: { streak: number }) {
+  if (streak < 10) return null;
+  const tier = streak >= 50 ? 'blue' : streak >= 35 ? 'scorch' : streak >= 20 ? 'hot' : 'ember';
+  return (
+    <div className={`flame flame--${tier}`} title={`${streak} correct calls in a row`}>
+      <svg viewBox="0 0 32 40" role="presentation" focusable="false">
+        <path
+          className="flame__outer"
+          d="M16 2.5 C 18 10, 26 14, 26 24 C 26 32, 21.5 38, 16 38 C 10.5 38, 6 32, 6 24 C 6 18, 9.5 15.5, 11 10.5 C 12.5 14, 15 15, 16 2.5 Z"
+        />
+        <path
+          className="flame__core"
+          d="M16 15 C 17.5 19, 21 21, 21 27 C 21 32, 18.8 35.2, 16 35.6 C 13.2 35.2, 11 32, 11 27 C 11 22.5, 14 19.5, 16 15 Z"
+        />
+      </svg>
+      <b>{streak}</b>
+    </div>
+  );
+}
+
 /* ---------- mute toggle ---------- */
 
 export function MuteButton() {
@@ -855,6 +881,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             </span>
           )}
         </div>
+        <StreakFlame streak={game.streak} />
         {mode === 'practice' && (
           <button
             className={`btn btn--ghost btn--hint ${showHint ? 'btn--hint-on' : ''}`}

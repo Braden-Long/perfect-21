@@ -18,6 +18,7 @@ export interface Drill {
   next: () => void;
   reps: number;
   correct: number;
+  streak: number;
   /** Remaining tracked weak spots (drives the "leaks left" counter). */
   missCount: number;
 }
@@ -34,6 +35,7 @@ export function useDrill(profile: Profile): Drill {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [reps, setReps] = useState(0);
   const [correct, setCorrect] = useState(0);
+  const [streak, setStreak] = useState(0);
   const strategyRef = useRef<Strategy | null>(null);
   const feedbackIdRef = useRef(0);
 
@@ -87,6 +89,7 @@ export function useDrill(profile: Profile): Drill {
       play(ok ? 'correct' : 'incorrect');
       setReps((n) => n + 1);
       if (ok) setCorrect((n) => n + 1);
+      setStreak((n) => (ok ? n + 1 : 0));
       setPhase('review');
     },
     [hand, phase, profile]
@@ -110,6 +113,7 @@ export function useDrill(profile: Profile): Drill {
     next,
     reps,
     correct,
+    streak,
     missCount: Object.keys(profile.misses).length,
   };
 }

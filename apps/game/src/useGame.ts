@@ -257,6 +257,13 @@ export function useGame(profile: Profile, mode: Mode): Game {
       const perSpot = seatsN > 1 ? ' per spot' : '';
       recordCountingDecision(profile, correct, 'bet');
       setTape((prev) => [...prev, correct]);
+      // Bet checks are graded calls: they feed (or break) the streak too.
+      if (correct) {
+        streakRef.current++;
+        if (streakRef.current > profile.bestStreak) profile.bestStreak = streakRef.current;
+      } else {
+        streakRef.current = 0;
+      }
       betFeedback = {
         id: ++feedbackIdRef.current,
         correct,
@@ -437,6 +444,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
       play(correct ? 'correct' : 'incorrect');
       if (correct) {
         streakRef.current++;
+        if (streakRef.current > profile.bestStreak) profile.bestStreak = streakRef.current;
       } else if (mode === 'endless') {
         endedRef.current = true;
         if (streakRef.current > profile.bestEndless) profile.bestEndless = streakRef.current;
@@ -535,6 +543,12 @@ export function useGame(profile: Profile, mode: Mode): Game {
       });
       recordCountingDecision(profile, correct, 'insurance');
       setTape((prev) => [...prev, correct]);
+      if (correct) {
+        streakRef.current++;
+        if (streakRef.current > profile.bestStreak) profile.bestStreak = streakRef.current;
+      } else {
+        streakRef.current = 0;
+      }
       setFeedback({
         id: ++feedbackIdRef.current,
         correct,

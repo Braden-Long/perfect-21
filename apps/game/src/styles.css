@@ -273,6 +273,90 @@ a {
   font-family: inherit;
 }
 
+/* The streak fire: hotter colors as the run of correct calls grows. */
+.flame {
+  position: relative;
+  flex: none;
+  width: calc(40 * var(--u));
+  margin: calc(-8 * var(--u)) 0;
+  animation: flame-in 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+  filter: drop-shadow(0 0 calc(9 * var(--u)) var(--fl-glow));
+}
+
+.flame svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: 50% 100%;
+  animation: flame-flicker 1.05s ease-in-out infinite;
+}
+
+.flame__outer {
+  fill: var(--fl-out);
+}
+
+.flame__core {
+  fill: var(--fl-core);
+}
+
+.flame b {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 58%;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: calc(13.5 * var(--u));
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+.flame--ember {
+  --fl-out: #f5921e;
+  --fl-core: #ffd964;
+  --fl-glow: rgba(255, 157, 46, 0.5);
+}
+
+.flame--hot {
+  --fl-out: #f4581c;
+  --fl-core: #ffc23e;
+  --fl-glow: rgba(255, 100, 31, 0.6);
+}
+
+.flame--scorch {
+  --fl-out: #e22b18;
+  --fl-core: #ff9040;
+  --fl-glow: rgba(236, 48, 24, 0.7);
+}
+
+.flame--blue {
+  --fl-out: #3f7bff;
+  --fl-core: #cfe6ff;
+  --fl-glow: rgba(90, 145, 255, 0.75);
+}
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scale(1, 1) rotate(-1deg);
+  }
+  30% {
+    transform: scale(1.05, 0.96) rotate(1.3deg);
+  }
+  62% {
+    transform: scale(0.96, 1.06) rotate(-0.9deg);
+  }
+}
+
+@keyframes flame-in {
+  from {
+    opacity: 0;
+    scale: 0.3;
+  }
+}
+
 /* the dealt card popping off the front of the pack */
 .shoe-peel {
   animation: shoe-peel 0.34s ease-in forwards;

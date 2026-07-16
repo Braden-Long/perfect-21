@@ -12,6 +12,7 @@ import {
   DiscardTray,
   FeltText,
   MuteButton,
+  StreakFlame,
   totalLabel,
 } from './Table';
 
@@ -86,6 +87,7 @@ export function DrillScreen({ profile, onExit }: { profile: Profile; onExit: () 
             <b>{drill.reps > 0 ? `${((drill.correct / drill.reps) * 100).toFixed(0)}%` : '—'}</b>
           </span>
         </div>
+        <StreakFlame streak={drill.streak} />
         <MuteButton />
       </header>
 
