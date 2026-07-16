@@ -244,7 +244,6 @@ a {
   top: 1.5%;
   right: 3.5%;
   width: calc(218 * var(--u));
-  transform: rotate(4deg);
 }
 
 .discard {
@@ -252,7 +251,6 @@ a {
   top: 1%;
   left: 2%;
   width: calc(120 * var(--u));
-  transform: rotate(-6deg);
 }
 
 .shoe svg,

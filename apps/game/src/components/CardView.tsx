@@ -25,8 +25,8 @@ export function CardView({ card, hidden, index }: { card: Card; hidden?: boolean
       return;
     }
     const scale = c.width / el.offsetWidth || 1;
-    el.style.setProperty('--fly-x', `${((s.left + s.width * 0.15 - c.left) / scale).toFixed(1)}px`);
-    el.style.setProperty('--fly-y', `${((s.top + s.height * 0.8 - c.top) / scale).toFixed(1)}px`);
+    el.style.setProperty('--fly-x', `${((s.left + s.width * 0.16 - c.left) / scale).toFixed(1)}px`);
+    el.style.setProperty('--fly-y', `${((s.top + s.height * 0.74 - c.top) / scale).toFixed(1)}px`);
     void el.offsetWidth; // restart the animation on reused elements
     el.classList.add('card--dealt');
   }, [card]);

@@ -156,16 +156,17 @@ export function DealerRack() {
 }
 
 /**
- * The dealing shoe, drawn in a 3/4 view: a clear acrylic wedge holding a pack
- * of cards on edge. The pack is anchored at the mouth (left) and depletes from
- * the front, the roller weight advances behind it as cards come out, the red
- * cut card rides at the 75% penetration mark, and the next card out rests on
- * the nose slope with its back showing — like the real thing.
+ * The dealing shoe: a clear acrylic wedge sitting flat on the felt. The pack's
+ * base is level on the floor and every card leans back diagonally onto the one
+ * behind it, cascading into the pusher — which leans at the same angle and
+ * props up only the back card. The front card's back faces the player at the
+ * mouth, the red cut card rides at the 75% penetration mark, and the pack
+ * depletes from the front as the pusher advances.
  */
 export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
   const level = Math.max(0.04, Math.min(1, fill));
   // The pack's LENGTH scales with the deck count — more decks, longer brick.
-  const fullW = (0.32 + (Math.min(decks, 8) / 8) * 0.58) * 170;
+  const fullW = (0.32 + (Math.min(decks, 8) / 8) * 0.58) * 166;
   const w = Math.max(7, level * fullW);
   // Cards ahead of the cut card get dealt; 25% of a full pack always sits
   // behind it, so it slides toward the mouth as the shoe runs down.
@@ -226,75 +227,64 @@ export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
           </pattern>
         </defs>
 
-        <ellipse cx="130" cy="133" rx="122" ry="10" fill="url(#shoe-shadow)" />
+        <ellipse cx="130" cy="128" rx="122" ry="9" fill="url(#shoe-shadow)" />
 
-        {/* far acrylic wall (behind the pack) + floor */}
+        {/* far acrylic wall (behind the pack) */}
         <path
-          d="M 6 137 L 238 137 L 244 22 L 72 55 L 52 118 Z"
-          transform="translate(14,-10)"
-          fill="rgba(220,240,232,0.08)"
-          stroke="rgba(255,255,255,0.3)"
+          d="M 10 124 L 240 124 L 240 30 L 76 60 L 44 110 Z"
+          transform="translate(13,-8)"
+          fill="rgba(220,240,232,0.07)"
+          stroke="rgba(255,255,255,0.28)"
           strokeWidth="0.8"
           strokeLinejoin="round"
         />
-        <polygon points="6,137 238,137 252,127 20,127" fill="rgba(6,14,10,0.35)" />
+        {/* flat floor — the pack's base sits level on it */}
+        <polygon points="10,124 240,124 253,116 23,116" fill="rgba(6,14,10,0.4)" />
 
-        {/* the pack rides a 12° ramp; cards lean back another 14° on it */}
-        <g transform="translate(20,130) rotate(-12)">
-          {/* side face: one thin edge per card */}
-          <g transform="matrix(1 0 -0.249 1 0 0)">
-            <rect x="24" y="-56" width={w} height="56" fill="url(#shoe-side)" style={grow} />
-            <rect x="24" y="-56" width={w} height="56" fill="url(#shoe-sideshade)" style={grow} />
-          </g>
-          {/* lit top edges, extruded into the view */}
-          <g transform="matrix(1 0 -15.8 6.9 29.7 -62.9)">
-            <rect x="24" y="0" width={w} height="1" fill="url(#shoe-top)" style={grow} />
-          </g>
-
-          {/* the red cut card, standing taller than the pack */}
-          {showCut && (
-            <g style={{ transform: `translateX(${cutOffset.toFixed(1)}px)`, ...slide }}>
-              <g transform="matrix(1 0 -0.249 1 0 0)">
-                <rect x="24" y="-60" width="2.6" height="60" fill="#d63b2f" />
-              </g>
-              <polygon points="38.9,-60 41.5,-60 57.3,-66.9 54.7,-66.9" fill="#ff7b66" />
-            </g>
-          )}
-
-          {/* roller weight pressed against the back of the pack */}
-          <g style={{ transform: `translateX(${w.toFixed(1)}px)`, ...slide }}>
-            <ellipse cx="35.5" cy="-49" rx="8.5" ry="3.4" fill="#37424b" />
-            <rect x="27" y="-49" width="17" height="49" rx="6" fill="url(#shoe-roller)" />
-            <circle cx="35" cy="-6" r="5.2" fill="#05080b" stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
-            <circle cx="36.6" cy="-7.6" r="1.6" fill="rgba(255,255,255,0.22)" />
-          </g>
-
-          {/* the next card out: the pack's front card, back facing the player,
-              sitting slightly proud at the mouth */}
-          <polygon
-            points="22,0 35.9,-56 54.1,-63.9 40.2,-7.9"
-            fill="#f2f0e8"
-            stroke="rgba(0,0,0,0.28)"
-            strokeWidth="0.7"
-            strokeLinejoin="round"
-          />
-          <polygon points="24.1,-4.2 36.2,-52.9 52,-59.8 39.9,-11" fill="#2d54a6" />
-          <polygon points="24.1,-4.2 36.2,-52.9 52,-59.8 39.9,-11" fill="url(#shoe-back)" />
+        {/* the pack: bottoms flat on the floor, every card leaning back 26°
+            onto the one behind it, cascading into the pusher */}
+        <g transform="translate(34,119) matrix(1 0 -0.484 1 0 0)">
+          <rect x="0" y="-62" width={w} height="62" fill="url(#shoe-side)" style={grow} />
+          <rect x="0" y="-62" width={w} height="62" fill="url(#shoe-sideshade)" style={grow} />
+        </g>
+        {/* the lit top edges of the leaning cards */}
+        <g transform="matrix(1 0 -13 8 77 49)">
+          <rect x="0" y="0" width={w} height="1" fill="url(#shoe-top)" style={grow} />
         </g>
 
-        {/* the clear wedge riser under the cards — its near edge climbs the slope */}
-        <polygon points="8,133.4 232,86 238,137 8,137" fill="rgba(255,255,255,0.1)" />
-        <path
-          d="M 8 133.4 L 232 86"
-          stroke="rgba(255,255,255,0.55)"
-          strokeWidth="0.9"
-          fill="none"
-        />
+        {/* the red cut card: leans with the pack, stands a little taller */}
+        {showCut && (
+          <g style={{ transform: `translateX(${cutOffset.toFixed(1)}px)`, ...slide }}>
+            <polygon points="34,119 67,51 69.6,51 36.6,119" fill="#d63b2f" />
+            <polygon points="67,51 69.6,51 82.6,43 80,43" fill="#ff7b66" />
+          </g>
+        )}
 
-        {/* near acrylic shell: low mouth cut in front of the next card,
-            rising over the pack to the tall back */}
+        {/* the pusher: a plate leaning at the same angle, propping only the
+            back card, with its wheel on the flat floor */}
+        <g style={{ transform: `translateX(${w.toFixed(1)}px)`, ...slide }}>
+          <polygon points="47,119 77,57 90,49 60,111" fill="#242e36" />
+          <polygon points="34,119 64,57 77,57 47,119" fill="url(#shoe-roller)" />
+          <circle cx="52" cy="113" r="5.4" fill="#05080b" stroke="rgba(255,255,255,0.16)" strokeWidth="1" />
+          <circle cx="53.6" cy="111.4" r="1.7" fill="rgba(255,255,255,0.25)" />
+        </g>
+
+        {/* the next card out: the front of the pack, leaning back so its
+            whole back faces up toward the player */}
+        <polygon
+          points="34,119 64,57 77,49 47,111"
+          fill="#f2f0e8"
+          stroke="rgba(0,0,0,0.28)"
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+        <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="#2d54a6" />
+        <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="url(#shoe-back)" />
+
+        {/* near acrylic shell: flat on the felt, low mouth cut in front of
+            the leaning card, rising to the tall back */}
         <path
-          d="M 6 137 L 238 137 L 244 22 L 72 55 L 52 118 Z"
+          d="M 10 124 L 240 124 L 240 30 L 76 60 L 44 110 Z"
           fill="url(#shoe-acrylic)"
           stroke="rgba(255,255,255,0.6)"
           strokeWidth="1.4"
@@ -302,7 +292,7 @@ export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
         />
         {/* acrylic thickness edges */}
         <path
-          d="M 244 22 L 258 12 M 6 137 L 20 127 M 72 55 L 86 45"
+          d="M 240 30 L 253 22 M 10 124 L 23 116 M 240 124 L 253 116"
           stroke="rgba(255,255,255,0.45)"
           strokeWidth="0.9"
           fill="none"
