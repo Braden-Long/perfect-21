@@ -675,6 +675,9 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
   const [redDeck, setRedDeck] = useState(false);
   const requestDeal = () => {
     if (!game.canDeal || shuffling) return;
+    // Everything dealt before this round is in the discard by now — count it,
+    // whether or not the sweep animation got to play (fast re-deals skip it).
+    setTrayFrac(dealtFrac);
     if (game.shufflePending) {
       // The red card is out — shuffle in front of the player, then deal.
       setPendingDeal(true);

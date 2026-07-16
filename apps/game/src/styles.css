@@ -528,6 +528,14 @@ a {
   pointer-events: auto;
 }
 
+/* An open spot claims the ring's full footprint, so the ring and staged
+   chips sit wholly above the console instead of peeking out from behind it
+   as a half-swallowed sliver on short windows. */
+.bet-spot--open {
+  width: calc(86 * var(--u));
+  height: calc(86 * var(--u));
+}
+
 .bet-spot--open {
   min-height: calc(86 * var(--u));
   min-width: calc(86 * var(--u));
