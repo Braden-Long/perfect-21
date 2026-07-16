@@ -35,8 +35,9 @@ were actually worth.
   shoe* — it flies to its seat in casino order and flips over mid-flight — and settled hands
   are swept into the discard tray, where the pile of face-down cards grows to match the
   shoe. Every fresh table opens with a skippable shuffle animation — and when the cut card
-  comes out, it's pulled onto the discards in front of you and the next DEAL runs the same
-  shuffle before the cards come out.
+  comes out, it's pulled onto the discards in front of you, the dealt-out shoe runs empty
+  (the pusher slides to the mouth), and the next DEAL shuffles in the alternate deck —
+  casino-style, the backs swap between blue and red every reshuffle.
 - **Every decision is graded** against basic strategy the instant you make it, with a popup
   explaining *why* the correct play is correct — plus the live expected value of every action
   you could have taken, computed for the exact cards on the table.

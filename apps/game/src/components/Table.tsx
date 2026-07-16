@@ -164,24 +164,37 @@ export function DealerRack() {
  * depletes from the front as the pusher advances.
  */
 export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
+  // fill <= 0 draws an empty shoe: stub pulled, pusher run out to the mouth.
+  const empty = fill <= 0.001;
   const level = Math.max(0.04, Math.min(1, fill));
   // The pack's LENGTH scales with the deck count — more decks, longer brick.
   const fullW = (0.32 + (Math.min(decks, 8) / 8) * 0.58) * 166;
-  const w = Math.max(7, level * fullW);
+  const w = empty ? 0 : Math.max(7, level * fullW);
   // Cards ahead of the cut card get dealt; 25% of a full pack always sits
   // behind it, so it slides toward the mouth as the shoe runs down.
   const cutOffset = (level - 0.25) * fullW;
-  const showCut = level > 0.265 && cutOffset > 2;
+  const showCut = !empty && level > 0.265 && cutOffset > 2;
+  const cards = empty ? 0 : Math.round(level * decks * 52);
   const toCut = Math.round(Math.max(0, level - 0.25) * decks * 52);
+  // Whenever the card count drops, the front card visibly peels off the pack
+  // (the pusher's own 0.5s slide supplies the spring nudging forward).
+  const prevCards = useRef(cards);
+  const [peel, setPeel] = useState(0);
+  useEffect(() => {
+    if (cards < prevCards.current && cards > 0) setPeel((n) => n + 1);
+    prevCards.current = cards;
+  }, [cards]);
   const slide = { transition: 'transform 0.5s ease' } as const;
   const grow = { transition: 'width 0.5s ease' } as const;
   return (
     <div
       className="shoe"
       title={
-        toCut > 0
-          ? `${Math.round(level * decks * 52)} cards in the shoe — ${toCut} to the cut card, then a reshuffle`
-          : 'The cut card is out — next deal reshuffles'
+        empty
+          ? 'Shoe done — shuffling before the next deal'
+          : toCut > 0
+            ? `${cards} cards in the shoe — ${toCut} to the cut card, then a reshuffle`
+            : 'The cut card is out — next deal reshuffles'
       }
     >
       <svg viewBox="0 0 260 150" role="presentation" focusable="false">
@@ -238,48 +251,72 @@ export function DealShoe({ decks, fill }: { decks: number; fill: number }) {
           strokeWidth="0.8"
           strokeLinejoin="round"
         />
-        {/* flat floor — the pack's base sits level on it */}
+        {/* flat floor — the shoe's base sits level on the felt */}
         <polygon points="10,124 240,124 253,116 23,116" fill="rgba(6,14,10,0.4)" />
+        {/* the gravity wedge: a shallow rise inside, base level at the mouth,
+            higher toward the back, so the cards feed the pusher naturally */}
+        <polygon points="34,119 226,119 226,105.6" fill="rgba(255,255,255,0.13)" />
+        <path d="M 34 119 L 226 105.6" stroke="rgba(255,255,255,0.45)" strokeWidth="0.8" fill="none" />
 
-        {/* the pack: bottoms flat on the floor, every card leaning back 26°
-            onto the one behind it, cascading into the pusher */}
-        <g transform="translate(34,119) matrix(1 0 -0.484 1 0 0)">
-          <rect x="0" y="-62" width={w} height="62" fill="url(#shoe-side)" style={grow} />
-          <rect x="0" y="-62" width={w} height="62" fill="url(#shoe-sideshade)" style={grow} />
-        </g>
-        {/* the lit top edges of the leaning cards */}
-        <g transform="matrix(1 0 -13 8 77 49)">
-          <rect x="0" y="0" width={w} height="1" fill="url(#shoe-top)" style={grow} />
-        </g>
+        {/* everything on the wedge rides its 4° incline */}
+        <g transform="rotate(-4 34 119)">
+          {/* the pack: every card leaning back 26° onto the one behind it,
+              cascading into the pusher */}
+          {!empty && (
+            <>
+              <g transform="translate(34,119) matrix(1 0 -0.484 1 0 0)">
+                <rect x="0" y="-62" width={w} height="62" fill="url(#shoe-side)" style={grow} />
+                <rect x="0" y="-62" width={w} height="62" fill="url(#shoe-sideshade)" style={grow} />
+              </g>
+              {/* the lit top edges of the leaning cards */}
+              <g transform="matrix(1 0 -13 8 77 49)">
+                <rect x="0" y="0" width={w} height="1" fill="url(#shoe-top)" style={grow} />
+              </g>
+            </>
+          )}
 
-        {/* the red cut card: leans with the pack, stands a little taller */}
-        {showCut && (
-          <g style={{ transform: `translateX(${cutOffset.toFixed(1)}px)`, ...slide }}>
-            <polygon points="34,119 67,51 69.6,51 36.6,119" fill="#d63b2f" />
-            <polygon points="67,51 69.6,51 82.6,43 80,43" fill="#ff7b66" />
+          {/* the red cut card: leans with the pack, stands a little taller */}
+          {showCut && (
+            <g style={{ transform: `translateX(${cutOffset.toFixed(1)}px)`, ...slide }}>
+              <polygon points="34,119 67,51 69.6,51 36.6,119" fill="#d63b2f" />
+              <polygon points="67,51 69.6,51 82.6,43 80,43" fill="#ff7b66" />
+            </g>
+          )}
+
+          {/* the pusher: a plate leaning at the same angle, propping only the
+              back card, its wheel riding the wedge */}
+          <g style={{ transform: `translateX(${w.toFixed(1)}px)`, ...slide }}>
+            <polygon points="47,119 77,57 90,49 60,111" fill="#242e36" />
+            <polygon points="34,119 64,57 77,57 47,119" fill="url(#shoe-roller)" />
+            <circle cx="52" cy="113" r="5.4" fill="#05080b" stroke="rgba(255,255,255,0.16)" strokeWidth="1" />
+            <circle cx="53.6" cy="111.4" r="1.7" fill="rgba(255,255,255,0.25)" />
           </g>
-        )}
 
-        {/* the pusher: a plate leaning at the same angle, propping only the
-            back card, with its wheel on the flat floor */}
-        <g style={{ transform: `translateX(${w.toFixed(1)}px)`, ...slide }}>
-          <polygon points="47,119 77,57 90,49 60,111" fill="#242e36" />
-          <polygon points="34,119 64,57 77,57 47,119" fill="url(#shoe-roller)" />
-          <circle cx="52" cy="113" r="5.4" fill="#05080b" stroke="rgba(255,255,255,0.16)" strokeWidth="1" />
-          <circle cx="53.6" cy="111.4" r="1.7" fill="rgba(255,255,255,0.25)" />
+          {/* the next card out: the front of the pack, leaning back so its
+              whole back faces up toward the player */}
+          {!empty && (
+            <>
+              <polygon
+                points="34,119 64,57 77,49 47,111"
+                fill="#f2f0e8"
+                stroke="rgba(0,0,0,0.28)"
+                strokeWidth="0.7"
+                strokeLinejoin="round"
+              />
+              <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="var(--back-1, #2d54a6)" />
+              <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="url(#shoe-back)" />
+            </>
+          )}
+
+          {/* the card just dealt, peeling off the front */}
+          {peel > 0 && !empty && (
+            <g key={peel} className="shoe-peel">
+              <polygon points="34,119 64,57 77,49 47,111" fill="#f2f0e8" stroke="rgba(0,0,0,0.28)" strokeWidth="0.7" />
+              <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="var(--back-1, #2d54a6)" />
+              <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="url(#shoe-back)" />
+            </g>
+          )}
         </g>
-
-        {/* the next card out: the front of the pack, leaning back so its
-            whole back faces up toward the player */}
-        <polygon
-          points="34,119 64,57 77,49 47,111"
-          fill="#f2f0e8"
-          stroke="rgba(0,0,0,0.28)"
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
-        <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="#2d54a6" />
-        <polygon points="37.6,116 65.3,58.7 75,52.7 47.3,110" fill="url(#shoe-back)" />
 
         {/* near acrylic shell: flat on the felt, low mouth cut in front of
             the leaning card, rising to the tall back */}
@@ -416,7 +453,7 @@ export function DiscardTray({ dealt }: { dealt: number }) {
             {/* top card, face down */}
             <g style={{ transform: `translateY(${(-h).toFixed(1)}px)`, transition: 'transform 0.6s ease' }}>
               <polygon points="18,120 110,120 123,111 31,111" fill="#f2efe6" />
-              <polygon points="24.3,119.5 105.3,119.5 116.7,111.5 35.7,111.5" fill="#2d54a6" />
+              <polygon points="24.3,119.5 105.3,119.5 116.7,111.5 35.7,111.5" fill="var(--back-1, #2d54a6)" />
               <polygon points="24.3,119.5 105.3,119.5 116.7,111.5 35.7,111.5" fill="url(#dc-back)" />
             </g>
           </>
@@ -633,12 +670,16 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shuffling, pendingDeal]);
+  // Casinos rotate two decks of alternating back colors — every reshuffle
+  // brings in the other one.
+  const [redDeck, setRedDeck] = useState(false);
   const requestDeal = () => {
     if (!game.canDeal || shuffling) return;
     if (game.shufflePending) {
       // The red card is out — shuffle in front of the player, then deal.
       setPendingDeal(true);
       setShuffling(true);
+      setRedDeck((r) => !r);
       play('shuffle');
     } else {
       game.deal();
@@ -785,7 +826,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
     ) : null;
 
   return (
-    <div className="scene">
+    <div className={`scene ${redDeck ? 'scene--reddeck' : ''}`}>
       <header className="hud-top">
         <button className="btn btn--ghost" onClick={onExit}>
           ‹ Lobby
@@ -841,8 +882,13 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
           }}
         >
           <DealerRack />
-          <DealShoe decks={r.decks} fill={game.decksLeft / r.decks} />
-          <DiscardTray dealt={trayFrac} />
+          {/* Once the round with the cut card ends, the dealer pulls the
+              stub: the shoe runs empty and the discards take the rest. */}
+          <DealShoe
+            decks={r.decks}
+            fill={game.shufflePending && betting ? 0 : game.decksLeft / r.decks}
+          />
+          <DiscardTray dealt={game.shufflePending && betting ? 1 : trayFrac} />
           {game.shufflePending && !shuffling && (
             <div className="shoe-note">CUT CARD OUT — SHUFFLE BEFORE THE NEXT DEAL</div>
           )}
