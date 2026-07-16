@@ -1419,6 +1419,15 @@ a {
   background: linear-gradient(160deg, #ffffff 0%, #f0ecdf 100%);
   color: #1b1b1f;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  /* Cards animate transform constantly (deal flight, flip, sweep). Keep them
+     permanently composited: demoting a card's layer when its animation ends
+     used to leave stale one-tile strips of card texture on the felt. */
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.card__glide {
+  will-change: opacity;
 }
 
 /* Cards fly out of the shoe (--fly-x/y measured per card in CardView),
