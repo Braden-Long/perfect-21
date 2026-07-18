@@ -44,6 +44,7 @@ export function Menu({
   onPlay,
   onHistory,
   onCalc,
+  onSim,
   onStats,
   onChart,
   onRules,
@@ -54,6 +55,7 @@ export function Menu({
   onPlay: (mode: PlayChoice) => void;
   onHistory: () => void;
   onCalc: () => void;
+  onSim: () => void;
   onStats: () => void;
   onChart: () => void;
   onRules: () => void;
@@ -151,6 +153,9 @@ export function Menu({
           </button>
           <button className="btn btn--ghost" onClick={onCalc}>
             Hand calculator
+          </button>
+          <button className="btn btn--ghost" onClick={onSim}>
+            Simulator
           </button>
           <button className="btn btn--ghost" onClick={onHistory}>
             History

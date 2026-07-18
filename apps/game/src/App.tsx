@@ -12,6 +12,7 @@ import { DrillScreen } from './components/DrillScreen';
 import { CountTrainer } from './components/CountTrainer';
 import { HistoryScreen } from './components/HistoryScreen';
 import { HandCalc } from './components/HandCalc';
+import { SimScreen } from './components/SimScreen';
 import { RecoverScreen } from './components/RecoverScreen';
 import { loadProfile, saveProfile } from './profile';
 import { useGame } from './useGame';
@@ -24,6 +25,7 @@ type Screen =
   | { name: 'learn' }
   | { name: 'history' }
   | { name: 'calc' }
+  | { name: 'sim' }
   | { name: 'stats' }
   | { name: 'chart' }
   | { name: 'board' }
@@ -42,6 +44,7 @@ function screenForHash(hash: string): Screen | null {
   if (hash === '#drill') return { name: 'drill' };
   if (hash === '#learn') return { name: 'learn' };
   if (hash === '#calc') return { name: 'calc' };
+  if (hash === '#sim') return { name: 'sim' };
   if (hash.startsWith('#recover=')) return { name: 'recover', token: hash.slice('#recover='.length) };
   const mode = MODE_HASHES[hash];
   return mode ? { name: 'game', mode } : null;
@@ -107,6 +110,8 @@ export default function App() {
       );
     case 'calc':
       return <HandCalc profile={profile} onBack={backToMenu} />;
+    case 'sim':
+      return <SimScreen profile={profile} onBack={backToMenu} />;
     case 'stats':
       return <StatsScreen profile={profile} onBack={backToMenu} />;
     case 'chart':
@@ -133,6 +138,7 @@ export default function App() {
             }
             onHistory={() => setScreen({ name: 'history' })}
             onCalc={() => setScreen({ name: 'calc' })}
+            onSim={() => setScreen({ name: 'sim' })}
             onStats={() => setScreen({ name: 'stats' })}
             onChart={() => setScreen({ name: 'chart' })}
             onRules={() => setRulesOpen(true)}

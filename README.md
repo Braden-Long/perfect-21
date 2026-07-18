@@ -64,6 +64,10 @@ were actually worth.
 - **A hand calculator**: tap in any hand and the dealer's upcard and get the book's answer
   under your exact table rules — optimal action, the why, and the live EV of every available
   play. Pure lookup, touches no stats.
+- **A strategy simulator**: headless virtual players hit hundreds of thousands of hands with
+  no animation, a discipline slider from perfect play down to coin-flip, and a skill sweep
+  that plots RTP against adherence so you can *see* how much basic strategy is worth. Speed
+  control, its own P&L chart, and — like the calculator — it never touches your stats.
 - **Achievements**: sixteen trophies for the moments that matter — streak tiers, rank
   milestones, counting skills, surviving a rebuy. Unlocks toast at the table and live on the
   stats screen; all of them derive from real table play (drills can't farm them).
