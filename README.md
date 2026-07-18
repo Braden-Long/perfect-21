@@ -57,6 +57,12 @@ were actually worth.
   blue-white at 50+). Works in every mode, drills included; counting mode's bet checks and
   insurance calls feed it too. At the tables your longest streak is tracked as a permanent
   statistic — drill flashcards keep the flame session-only, since drills never touch stats.
+- **A hand calculator**: tap in any hand and the dealer's upcard and get the book's answer
+  under your exact table rules — optimal action, the why, and the live EV of every available
+  play. Pure lookup, touches no stats.
+- **Achievements**: sixteen trophies for the moments that matter — streak tiers, rank
+  milestones, counting skills, surviving a rebuy. Unlocks toast at the table and live on the
+  stats screen; all of them derive from real table play (drills can't farm them).
 - **Persistent rank** from your rolling decision accuracy: Bronze → Silver → Gold → Platinum →
   Diamond → **Perfect 21** (a full 200-decision window without a single miss).
 - **Global leaderboard**: claim a display name — no signup wall, you're playing in seconds —

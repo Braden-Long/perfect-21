@@ -2717,3 +2717,204 @@ code {
   font-size: 0.9em;
   color: var(--gold);
 }
+
+/* ---- achievements ---- */
+
+.screen-subtitle {
+  letter-spacing: 0.14em;
+  color: var(--gold);
+  font-weight: 400;
+  margin: 1.2rem 0 0.6rem;
+}
+.screen-subtitle i {
+  font-style: normal;
+  opacity: 0.55;
+  font-size: 0.85em;
+}
+
+.ach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 1.6rem;
+}
+
+.ach {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  opacity: 0.45;
+  text-align: left;
+}
+.ach--won {
+  opacity: 1;
+  border-color: rgba(232, 191, 90, 0.5);
+  background: rgba(232, 191, 90, 0.07);
+}
+.ach__icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.ach__name {
+  display: block;
+  font-size: 0.85rem;
+}
+.ach__desc {
+  display: block;
+  font-style: normal;
+  font-size: 0.74rem;
+  opacity: 0.65;
+  line-height: 1.25;
+}
+
+.ach-toast {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid rgba(232, 191, 90, 0.55);
+  border-radius: 12px;
+  background: rgba(12, 22, 16, 0.94);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  animation: ach-toast-in 4.2s ease both;
+  pointer-events: none;
+}
+.ach-toast__icon {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.ach-toast b {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.ach-toast i {
+  font-style: normal;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+@keyframes ach-toast-in {
+  0% {
+    transform: translate(-50%, -18px);
+    opacity: 0;
+  }
+  7%,
+  88% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -12px);
+    opacity: 0;
+  }
+}
+
+/* ---- hand calculator ---- */
+
+.calc-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0.7rem 0;
+  flex-wrap: wrap;
+}
+.calc-row__label {
+  min-width: 7.2rem;
+  text-align: right;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+.calc-picker {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+.calc-card {
+  width: 2.35rem;
+  height: 3.1rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: #f7f4ea;
+  color: #1c2420;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.calc-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.calc-card:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.calc-card--on {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.calc-card--held:hover {
+  background: #e9c9c2;
+}
+.calc-hand {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0.9rem;
+  flex-wrap: wrap;
+}
+.calc-hand__total {
+  margin: 0 0.6rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+.calc-verdict {
+  margin: 1rem 0 1.4rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid rgba(232, 191, 90, 0.45);
+  border-radius: 12px;
+  background: rgba(232, 191, 90, 0.06);
+  text-align: left;
+}
+.calc-verdict--bad {
+  border-color: rgba(214, 84, 62, 0.55);
+  background: rgba(214, 84, 62, 0.07);
+}
+.calc-verdict > b {
+  font-size: 1.25rem;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+}
+.calc-verdict--bad > b {
+  color: #e0705a;
+}
+.calc-verdict p {
+  margin: 0.45rem 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.calc-evs {
+  display: flex;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  font-size: 0.84rem;
+  opacity: 0.85;
+}
+.calc-evs__best {
+  color: var(--gold);
+}

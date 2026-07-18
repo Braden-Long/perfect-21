@@ -26,6 +26,8 @@ import {
 import { cellLabel } from './drill';
 import { scheduleSync } from './api';
 import { play } from './sound';
+import { checkAchievements } from './achievements';
+import type { Achievement } from './achievements';
 
 export type Mode = 'practice' | 'competitive' | 'endless' | 'counting';
 export type TablePhase = 'betting' | 'playing';
@@ -119,6 +121,10 @@ export interface Game {
   edge: number;
   /** Answer the insurance offer (counting mode, ace up). */
   insure: (take: boolean) => void;
+  /** Freshly unlocked achievements, queued oldest-first for the toast. */
+  unlocked: Achievement[];
+  /** Pop the toast queue once the front achievement has been shown. */
+  shiftUnlocked: () => void;
 }
 
 export function useGame(profile: Profile, mode: Mode): Game {
@@ -138,6 +144,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const [totalPlay, setTotalPlay] = useState(0);
   const [lastNet, setLastNet] = useState<number | null>(null);
   const [tape, setTape] = useState<boolean[]>([]);
+  const [unlocked, setUnlocked] = useState<Achievement[]>([]);
 
   const strategyRef = useRef<Strategy | null>(null);
   const shoeRef = useRef<Shoe | null>(null);
@@ -176,6 +183,19 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const bet = tablePhase === 'betting' ? chipStack.reduce((s, v) => s + v, 0) : betRef.current;
 
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Anything earned before this session (or before the feature shipped) is
+  // granted quietly — toasts are for the moment something new happens.
+  useEffect(() => {
+    checkAchievements(profile);
+  }, [profile]);
+
+  /** Run the unlock checks and queue any fresh trophies for the toast. */
+  const pushUnlocks = useCallback(() => {
+    const fresh = checkAchievements(profile);
+    if (fresh.length > 0) setUnlocked((u) => [...u, ...fresh]);
+  }, [profile]);
+  const shiftUnlocked = useCallback(() => setUnlocked((u) => u.slice(1)), []);
 
   // Every graded call — play, bet check, insurance — feeds one streak. A miss
   // breaks it; callers that must freeze it instead (endless: the run ends and
@@ -325,8 +345,9 @@ export function useGame(profile: Profile, mode: Mode): Game {
     setTablePhase('playing');
     round.deal();
     settleIfDone();
+    pushUnlocks();
     bump();
-  }, [bump, bumpStreak, canMultiSeat, chipStack, counting, endlessOver, profile, settleIfDone, setRoll, tablePhase, tableRules, theoreticalRTP]);
+  }, [bump, bumpStreak, canMultiSeat, chipStack, counting, endlessOver, profile, pushUnlocks, settleIfDone, setRoll, tablePhase, tableRules, theoreticalRTP]);
 
   const setSeats = useCallback(
     (n: number) => {
@@ -480,9 +501,10 @@ export function useGame(profile: Profile, mode: Mode): Game {
       r.act(chosen);
       settleIfDone();
       saveProfile(profile);
+      pushUnlocks();
       bump();
     },
-    [availableNow, bump, bumpStreak, endlessOver, mode, profile, recommend, settleIfDone, setRoll, tableRules]
+    [availableNow, bump, bumpStreak, endlessOver, mode, profile, pushUnlocks, recommend, settleIfDone, setRoll, tableRules]
   );
 
   const act = useCallback((a: Action) => applyAction(a, false), [applyAction]);
@@ -543,7 +565,8 @@ export function useGame(profile: Profile, mode: Mode): Game {
     setRoll(STARTING_BANKROLL);
     setChipStack([DEFAULT_BET]);
     saveProfile(profile);
-  }, [mode, profile, setRoll]);
+    pushUnlocks();
+  }, [mode, profile, pushUnlocks, setRoll]);
 
   /** Insurance call (counting mode): graded against the +3 index, costs half the bet. */
   const insure = useCallback(
@@ -589,9 +612,10 @@ export function useGame(profile: Profile, mode: Mode): Game {
       r.takeInsurance(take);
       settleIfDone();
       saveProfile(profile);
+      pushUnlocks();
       bump();
     },
-    [bump, bumpStreak, profile, settleIfDone, setRoll]
+    [bump, bumpStreak, profile, pushUnlocks, settleIfDone, setRoll]
   );
 
   // Competitive decision clock: reset whenever a new decision point appears.
@@ -664,5 +688,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     shufflePending,
     edge: counting ? counterEdge(theoreticalRTP - 1, trueCount(rcNow, cardsLeft)) : 0,
     insure,
+    unlocked,
+    shiftUnlocked,
   };
 }

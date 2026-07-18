@@ -3,6 +3,7 @@ import { RANK_TIERS, RANK_WINDOW, getStrategy } from '@perfect21/engine';
 import type { Strategy } from '@perfect21/engine';
 import type { Profile } from '../profile';
 import { countingRankOf, rankOf, resetRankAspect } from '../profile';
+import { ACHIEVEMENTS, checkAchievements } from '../achievements';
 import { scheduleSync } from '../api';
 import type { Rules } from '@perfect21/engine';
 
@@ -75,6 +76,12 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
   const [view, setView] = useState<'basic' | 'counting'>('basic');
   const rank = rankOf(profile);
   const countingRank = countingRankOf(profile);
+
+  // Anything already earned unlocks quietly here too, so the grid never shows
+  // a locked trophy the profile has objectively cleared.
+  useEffect(() => {
+    if (checkAchievements(profile).length > 0) forceRender((n) => n + 1);
+  }, [profile]);
 
   const reset = (aspect: 'basic' | 'counting') => {
     resetRankAspect(profile, aspect);
@@ -272,6 +279,31 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
             — and none of it touches your basic-strategy stats. Nothing to lose but the count.
           </p>
         )}
+
+        <h3 className="screen-subtitle">
+          Achievements{' '}
+          <i>
+            {Object.keys(profile.achievements).length}/{ACHIEVEMENTS.length}
+          </i>
+        </h3>
+        <div className="ach-grid">
+          {ACHIEVEMENTS.map((a) => {
+            const t = profile.achievements[a.id];
+            return (
+              <div
+                key={a.id}
+                className={`ach ${t ? 'ach--won' : ''}`}
+                title={t ? `Unlocked ${new Date(t).toLocaleDateString()}` : 'Locked'}
+              >
+                <span className="ach__icon">{t ? a.icon : '🔒'}</span>
+                <span>
+                  <b className="ach__name">{a.name}</b>
+                  <i className="ach__desc">{a.desc}</i>
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
         <div className="tier-ladder">
           {RANK_TIERS.map((t) => (

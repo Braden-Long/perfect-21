@@ -43,6 +43,7 @@ export function Menu({
   profile,
   onPlay,
   onHistory,
+  onCalc,
   onStats,
   onChart,
   onRules,
@@ -52,6 +53,7 @@ export function Menu({
   profile: Profile;
   onPlay: (mode: PlayChoice) => void;
   onHistory: () => void;
+  onCalc: () => void;
   onStats: () => void;
   onChart: () => void;
   onRules: () => void;
@@ -133,6 +135,9 @@ export function Menu({
           </button>
           <button className="btn btn--ghost" onClick={onChart}>
             Strategy chart
+          </button>
+          <button className="btn btn--ghost" onClick={onCalc}>
+            Hand calculator
           </button>
           <button className="btn btn--ghost" onClick={onHistory}>
             History

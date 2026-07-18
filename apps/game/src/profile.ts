@@ -91,6 +91,8 @@ export interface Profile {
    * the stats screen owns up to it instead of claiming purity.
    */
   statsMixed?: boolean;
+  /** Unlocked achievements: id → unlock time (epoch ms). See achievements.ts. */
+  achievements: Record<string, number>;
 }
 
 function fresh(): Profile {
@@ -118,6 +120,7 @@ function fresh(): Profile {
     countingInsCorrect: 0,
     countingRounds: 0,
     countingNet: 0,
+    achievements: {},
   };
 }
 

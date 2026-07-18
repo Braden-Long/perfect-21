@@ -11,6 +11,7 @@ import {
   TABLE_MIN_BET,
 } from '../useGame';
 import { play, setSoundMuted, soundMuted } from '../sound';
+import type { Achievement } from '../achievements';
 import { CardView } from './CardView';
 
 const ACTION_KEYS: Record<string, Action> = {
@@ -652,6 +653,23 @@ function TimerBar({ deadline }: { deadline: number }) {
   );
 }
 
+/** One trophy toast at a time; the queue in useGame feeds the next. */
+function AchievementToast({ a, onDone }: { a: Achievement; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 4200);
+    return () => clearTimeout(t);
+  }, [a, onDone]);
+  return (
+    <div className="ach-toast" key={a.id}>
+      <span className="ach-toast__icon">{a.icon}</span>
+      <div>
+        <b>Achievement unlocked</b>
+        <i>{a.name}</i>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- the table ---------- */
 
 export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: () => void }) {
@@ -899,6 +917,9 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
       </header>
 
       {banner}
+      {game.unlocked.length > 0 && (
+        <AchievementToast a={game.unlocked[0]} onDone={game.shiftUnlocked} />
+      )}
       {mode === 'counting' && <CountPanel game={game} />}
 
       <div className="table">
