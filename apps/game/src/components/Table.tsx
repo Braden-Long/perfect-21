@@ -469,19 +469,6 @@ export function DiscardTray({ dealt }: { dealt: number }) {
           stroke="rgba(255,255,255,0.5)"
           strokeWidth="1.2"
         />
-        {level <= 0.005 && (
-          <text
-            x="67"
-            y="112"
-            textAnchor="middle"
-            fontSize="10.5"
-            fontWeight="700"
-            letterSpacing="3"
-            fill="rgba(255,255,255,0.35)"
-          >
-            DISCARDS
-          </text>
-        )}
       </svg>
     </div>
   );
