@@ -10,11 +10,24 @@ export interface LiveStatsData {
   series: number[];
 }
 
-/** 13.2K / 1.05M style abbreviation for the Played counter. */
+/** 13.2K / 1.05M style abbreviation for whole counts (wins, losses, played). */
 function compact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 10_000) return `${(n / 1000).toFixed(2)}K`;
   return n.toLocaleString('en-US');
+}
+
+/**
+ * Signed money/units: a leading minus only when negative (never a plus), and
+ * K/M abbreviation so a Turbo run's millions still fit the fixed-width panel.
+ */
+function money(n: number): string {
+  const sign = n < 0 ? '−' : '';
+  const a = Math.abs(n);
+  if (a >= 1_000_000) return `${sign}${(a / 1_000_000).toFixed(2)}M`;
+  if (a >= 10_000) return `${sign}${(a / 1000).toFixed(2)}K`;
+  if (a >= 1000) return `${sign}${a.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  return `${sign}${a.toFixed(a % 1 === 0 ? 0 : 2)}`;
 }
 
 function Coin() {
@@ -30,7 +43,7 @@ function Coin() {
 }
 
 /** Area chart split at the zero line: green above, red below (stake/shuffle style). */
-function LiveChart({ series, format }: { series: number[]; format: (n: number) => string }) {
+function LiveChart({ series }: { series: number[] }) {
   const uid = useId();
   const net = series[series.length - 1] ?? 0;
   const W = 320;
@@ -49,7 +62,7 @@ function LiveChart({ series, format }: { series: number[]; format: (n: number) =
     <div className="ls-chart-wrap">
       <div className={`ls-chart-net ${net >= 0 ? 'ls-pos' : 'ls-neg'}`}>
         <Coin />
-        {format(net)}
+        {money(net)}
       </div>
       <svg className="ls-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         <defs>
@@ -79,17 +92,7 @@ function LiveChart({ series, format }: { series: number[]; format: (n: number) =
 }
 
 /** The panel body — identical in-game and in the simulator. */
-export function LiveStats({
-  data,
-  format,
-  onClose,
-  onRefresh,
-}: {
-  data: LiveStatsData;
-  format: (n: number) => string;
-  onClose?: () => void;
-  onRefresh?: () => void;
-}) {
+export function LiveStats({ data }: { data: LiveStatsData }) {
   return (
     <div className="ls-body">
       <div className="ls-card ls-grid">
@@ -97,12 +100,12 @@ export function LiveStats({
           <span className="ls-label">Net gain</span>
           <span className={`ls-value ${data.net >= 0 ? 'ls-pos' : 'ls-neg'}`}>
             <Coin />
-            {format(data.net)}
+            {money(data.net)}
           </span>
         </div>
         <div className="ls-cell">
           <span className="ls-label">Wins</span>
-          <span className="ls-value ls-pos">{data.wins.toLocaleString('en-US')}</span>
+          <span className="ls-value ls-pos">{compact(data.wins)}</span>
         </div>
         <div className="ls-cell">
           <span className="ls-label">Played</span>
@@ -113,12 +116,12 @@ export function LiveStats({
         </div>
         <div className="ls-cell">
           <span className="ls-label">Losses</span>
-          <span className="ls-value ls-neg">{data.losses.toLocaleString('en-US')}</span>
+          <span className="ls-value ls-neg">{compact(data.losses)}</span>
         </div>
       </div>
 
       <div className="ls-card">
-        <LiveChart series={data.series} format={format} />
+        <LiveChart series={data.series} />
       </div>
     </div>
   );
@@ -183,17 +186,15 @@ function LsHeader({
 /** Static panel for the simulator (mandatory, non-movable). */
 export function LiveStatsPanel({
   data,
-  format,
   onRefresh,
 }: {
   data: LiveStatsData;
-  format: (n: number) => string;
   onRefresh?: () => void;
 }) {
   return (
     <div className="ls-panel ls-panel--static">
       <LsHeader onRefresh={onRefresh} />
-      <LiveStats data={data} format={format} />
+      <LiveStats data={data} />
     </div>
   );
 }
@@ -201,12 +202,10 @@ export function LiveStatsPanel({
 /** Draggable, closable modal for the table (optional, default bottom-right). */
 export function LiveStatsModal({
   data,
-  format,
   onClose,
   onRefresh,
 }: {
   data: LiveStatsData;
-  format: (n: number) => string;
   onClose: () => void;
   onRefresh?: () => void;
 }) {
@@ -245,7 +244,7 @@ export function LiveStatsModal({
       onPointerUp={onPointerUp}
     >
       <LsHeader onRefresh={onRefresh} onClose={onClose} onPointerDown={onPointerDown} draggable />
-      <LiveStats data={data} format={format} />
+      <LiveStats data={data} />
     </div>
   );
 }

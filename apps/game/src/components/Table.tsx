@@ -940,7 +940,6 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             played: game.pnlSeries.length - 1,
             series: game.pnlSeries,
           }}
-          format={(n) => `${n >= 0 ? '+' : '−'}${fmtChips(Math.abs(n))}`}
           onClose={() => setShowLiveStats(false)}
           onRefresh={game.resetPnl}
         />

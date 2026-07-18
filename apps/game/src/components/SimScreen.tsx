@@ -15,10 +15,6 @@ const SWEEP_LEVELS = [1, 0.98, 0.95, 0.9, 0.85, 0.8, 0.7, 0.6, 0.5];
 const SWEEP_HANDS = 20000;
 const SERIES_CAP = 200;
 
-/** Net units are ½-unit granular; show a decimal only for small values. */
-const fmtUnits = (n: number) =>
-  `${n >= 0 ? '+' : '−'}${Math.abs(n) >= 100 ? Math.round(Math.abs(n)).toLocaleString('en-US') : Math.abs(n).toFixed(1)}`;
-
 function SweepChart({ points, theoretical }: { points: SweepPoint[]; theoretical: number }) {
   const rtps = points.flatMap((p) => [p.actualRTP, p.expectedRTP]).concat(theoretical, 1);
   const lo = Math.min(...rtps);
@@ -229,7 +225,6 @@ export function SimScreen({ profile, onBack }: { profile: Profile; onBack: () =>
                 played: stats?.hands ?? 0,
                 series,
               }}
-              format={fmtUnits}
               onRefresh={reset}
             />
           </div>
