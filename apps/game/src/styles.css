@@ -2980,81 +2980,207 @@ code {
   opacity: 0.75;
 }
 
-/* ---- live session P&L chart (stake-style) ---- */
+/* ---- Live Stats panel (in-game modal + simulator) ---- */
 
-.pnl-panel {
-  position: absolute;
-  bottom: 92px;
-  right: 14px;
-  z-index: 7;
-  width: min(240px, 40vw);
+.ls-panel {
+  --ls-up: #4bd287;
+  --ls-dn: #e0574a;
+  width: 300px;
+  max-width: 92vw;
+  background: #1a1d23;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 0.5rem 0.7rem 0.8rem;
+  color: #e8ebf0;
+}
+.ls-panel--modal {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 24;
+}
+.ls-panel--static {
+  width: 100%;
+}
+
+.ls-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.15rem 0.6rem;
+}
+.ls-head--drag {
+  cursor: grab;
+  touch-action: none;
+}
+.ls-head--drag:active {
+  cursor: grabbing;
+}
+.ls-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+.ls-title-icon {
+  width: 20px;
+  height: 20px;
+  color: #e8ebf0;
+}
+.ls-icons {
+  display: flex;
+  gap: 0.35rem;
+}
+.ls-icon {
+  border: none;
+  background: none;
+  padding: 4px;
+  color: #9aa3af;
+  cursor: pointer;
+  border-radius: 6px;
+  line-height: 0;
+}
+.ls-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.ls-icon:hover {
+  color: #e8ebf0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ls-card {
+  background: #23262e;
+  border-radius: 11px;
+  padding: 0.9rem 1rem;
+  margin-top: 0.5rem;
+}
+.ls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem 0;
+}
+.ls-cell {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 0.3rem;
-  --pnl: #3fdc8a;
+  padding: 0 0.2rem;
 }
-.pnl-panel--down {
-  --pnl: #e0705a;
+.ls-cell:nth-child(odd) {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
-.pnl-panel__head {
-  width: 100%;
+.ls-cell:nth-child(1),
+.ls-cell:nth-child(2) {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ls-cell:nth-child(3),
+.ls-cell:nth-child(4) {
+  padding-top: 0.7rem;
+}
+.ls-label {
+  font-size: 0.92rem;
+  color: #8b93a0;
+}
+.ls-value {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-}
-.pnl-panel__head b {
-  font-size: 0.98rem;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.35rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--pnl);
-  text-shadow: 0 0 10px color-mix(in srgb, var(--pnl) 45%, transparent);
 }
-.pnl-panel__chart {
+.ls-coin {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.ls-pos {
+  color: var(--ls-up);
+}
+.ls-neg {
+  color: var(--ls-dn);
+}
+
+.ls-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.ls-chart-net {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ls-chart {
   width: 100%;
-  height: 70px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.32);
-  overflow: hidden;
+  height: 150px;
 }
-.pnl-panel__zero {
-  stroke: rgba(255, 255, 255, 0.22);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
+.ls-zero {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
-.pnl-panel__area {
-  fill: var(--pnl);
-  opacity: 0.16;
+.ls-area--up {
+  fill: var(--ls-up);
+  opacity: 0.28;
 }
-.pnl-panel__line {
+.ls-area--dn {
+  fill: var(--ls-dn);
+  opacity: 0.28;
+}
+.ls-line {
   fill: none;
-  stroke: var(--pnl);
-  stroke-width: 2;
+  stroke-width: 2.4;
   stroke-linejoin: round;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--pnl) 55%, transparent));
 }
-.pnl-panel__toggle {
-  border: none;
-  background: none;
-  color: var(--ink-dim);
-  font-size: 0.68rem;
-  letter-spacing: 0.05em;
-  text-decoration: underline dotted;
-  padding: 0;
+.ls-line--up {
+  stroke: var(--ls-up);
+}
+.ls-line--dn {
+  stroke: var(--ls-dn);
+}
+
+.btn--livestats {
+  font-size: 1rem;
+  padding: 0.3rem 0.5rem;
+}
+.btn--livestats-on {
+  background: rgba(232, 191, 90, 0.16);
 }
 
 /* ---- strategy simulator ---- */
 
-/* make the up/down colour tokens self-contained so the sim chart can borrow them */
-.pnl-panel--up {
-  --pnl: #3fdc8a;
+.sim-layout {
+  display: flex;
+  gap: 1.4rem;
+  align-items: flex-start;
+  margin: 1.2rem 0 1.6rem;
+}
+.sim-left {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.sim-right {
+  flex: 0 0 300px;
+  max-width: 300px;
+}
+@media (max-width: 640px) {
+  .sim-layout {
+    flex-direction: column;
+  }
+  .sim-right {
+    flex-basis: auto;
+    max-width: 100%;
+    align-self: stretch;
+  }
 }
 
 .sim-controls {
@@ -3089,15 +3215,8 @@ code {
   margin: 0.6rem 0 1rem;
 }
 .sim-grid {
-  margin: 1rem 0;
-}
-.sim-chart {
-  width: 100%;
-  height: 150px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.32);
-  margin-bottom: 1.4rem;
+  margin: 1rem 0 0;
+  grid-template-columns: 1fr 1fr;
 }
 
 .sweep {

@@ -13,6 +13,7 @@ import {
 import { play, setSoundMuted, soundMuted } from '../sound';
 import type { Achievement } from '../achievements';
 import { CardView } from './CardView';
+import { LiveStatsModal } from './LiveStats';
 
 const ACTION_KEYS: Record<string, Action> = {
   h: 'hit',
@@ -653,66 +654,6 @@ function TimerBar({ deadline }: { deadline: number }) {
   );
 }
 
-/**
- * Live session P&L — a stake-style red/green area chart that redraws as each
- * round settles. One point per settled round; green while you're up on the
- * session, red while you're down.
- */
-function SessionPnL({ series }: { series: number[] }) {
-  const [show, setShow] = useState(true);
-  const pnl = series[series.length - 1];
-  const up = pnl >= 0;
-  const W = 240;
-  const H = 70;
-  const PAD = 4;
-
-  // Scale across the session's swing, always including the zero baseline so a
-  // winning and a losing session read differently at a glance.
-  const lo = Math.min(0, ...series);
-  const hi = Math.max(0, ...series);
-  const span = hi - lo || 1;
-  const x = (i: number) =>
-    series.length < 2 ? W : PAD + (i / (series.length - 1)) * (W - 2 * PAD);
-  const y = (v: number) => PAD + (1 - (v - lo) / span) * (H - 2 * PAD);
-  const zeroY = y(0);
-
-  const line = series.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
-  const area = `${line} L ${x(series.length - 1).toFixed(1)} ${zeroY.toFixed(1)} L ${x(0).toFixed(1)} ${zeroY.toFixed(1)} Z`;
-
-  return (
-    <aside className={`pnl-panel pnl-panel--${up ? 'up' : 'down'}`}>
-      {show && (
-        <>
-          <div className="pnl-panel__head">
-            <span>Session P&amp;L</span>
-            <b>
-              {pnl >= 0 ? '+' : '−'}
-              {fmtChips(Math.abs(pnl))}
-            </b>
-          </div>
-          <svg className="pnl-panel__chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-            <line
-              className="pnl-panel__zero"
-              x1={0}
-              x2={W}
-              y1={zeroY}
-              y2={zeroY}
-            />
-            {series.length >= 2 && (
-              <>
-                <path className="pnl-panel__area" d={area} />
-                <path className="pnl-panel__line" d={line} />
-              </>
-            )}
-          </svg>
-        </>
-      )}
-      <button className="pnl-panel__toggle" onClick={() => setShow((s) => !s)}>
-        {show ? 'Hide P&L' : `P&L ${pnl >= 0 ? '+' : '−'}${fmtChips(Math.abs(pnl))}`}
-      </button>
-    </aside>
-  );
-}
 
 /** One trophy toast at a time; the queue in useGame feeds the next. */
 function AchievementToast({ a, onDone }: { a: Achievement; onDone: () => void }) {
@@ -735,6 +676,7 @@ function AchievementToast({ a, onDone }: { a: Achievement; onDone: () => void })
 
 export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: () => void }) {
   const [showHint, setShowHint] = useState(false);
+  const [showLiveStats, setShowLiveStats] = useState(true);
   const { round, feedback, available, session, tablePhase } = game;
   const betting = tablePhase === 'betting';
   const playing = round !== null && round.phase === 'player' && !game.endlessOver;
@@ -974,6 +916,13 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             {showHint ? 'Hints: on' : 'Hints: off'}
           </button>
         )}
+        <button
+          className={`btn btn--ghost btn--livestats ${showLiveStats ? 'btn--livestats-on' : ''}`}
+          onClick={() => setShowLiveStats((v) => !v)}
+          title="Live stats"
+        >
+          📊
+        </button>
         <MuteButton />
       </header>
 
@@ -982,7 +931,20 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
         <AchievementToast a={game.unlocked[0]} onDone={game.shiftUnlocked} />
       )}
       {mode === 'counting' && <CountPanel game={game} />}
-      {game.pnlSeries.length > 1 && <SessionPnL series={game.pnlSeries} />}
+      {showLiveStats && (
+        <LiveStatsModal
+          data={{
+            net: game.pnlSeries[game.pnlSeries.length - 1],
+            wins: game.pnlWins,
+            losses: game.pnlLosses,
+            played: game.pnlSeries.length - 1,
+            series: game.pnlSeries,
+          }}
+          format={(n) => `${n >= 0 ? '+' : '−'}${fmtChips(Math.abs(n))}`}
+          onClose={() => setShowLiveStats(false)}
+          onRefresh={game.resetPnl}
+        />
+      )}
 
       <div className="table">
         <div

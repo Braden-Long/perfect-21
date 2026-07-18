@@ -19,15 +19,20 @@ export interface SimBatch {
   decisions: number;
   /** Decisions that matched the chart's best available play. */
   matched: number;
+  /** Rounds with a positive / negative net (pushes count as neither). */
+  wins: number;
+  losses: number;
 }
 
-const emptyBatch = (): SimBatch => ({
+export const emptyBatch = (): SimBatch => ({
   hands: 0,
   net: 0,
   wagered: 0,
   evLoss: 0,
   decisions: 0,
   matched: 0,
+  wins: 0,
+  losses: 0,
 });
 
 /** The chart cell governing a live hand, matching Strategy.recommend's selection. */
@@ -91,6 +96,8 @@ export function simulateBatch(
     acc.hands++;
     acc.net += summary.net;
     acc.wagered += summary.initialBet;
+    if (summary.net > 0) acc.wins++;
+    else if (summary.net < 0) acc.losses++;
   }
   return acc;
 }

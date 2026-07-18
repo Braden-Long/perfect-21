@@ -54,8 +54,10 @@ were actually worth.
   earned you, so you can see how much of your result was the deck and how much was you.
   Counting tables keep an entirely separate ledger (their own hands, net, RTP and per-skill
   accuracy behind a toggle) — learning to count never drags down your basic-strategy record.
-- **A live P&L chart** at the table: a stake-style red/green area chart that redraws as each
-  round settles, green while you're up on the session and red while you're down.
+- **A Live Stats panel** at the table: a draggable, closable modal (bottom-right by default,
+  toggled from the HUD) with net gain, wins, played and losses, and a stake-style area chart
+  that redraws each round — green above the zero line, red below. The same panel is a fixed
+  fixture in the simulator.
 - **A streak fire**: ten straight correct calls light a flame in the HUD with your run count
   burning inside it — and it gets hotter as the streak grows (amber → orange-red → crimson →
   blue-white at 50+). Works in every mode, drills included; counting mode's bet checks and

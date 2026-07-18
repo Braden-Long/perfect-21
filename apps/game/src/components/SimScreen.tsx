@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Shoe } from '@perfect21/engine';
 import type { Profile } from '../profile';
 import { useStrategy } from './StatsScreen';
-import { simulateBatch, sweepLevel } from '../sim';
+import { emptyBatch, simulateBatch, sweepLevel } from '../sim';
 import type { SimBatch, SweepPoint } from '../sim';
+import { LiveStatsPanel } from './LiveStats';
 
 const SPEEDS = [
   { label: 'Slow', tick: 3 },
@@ -14,35 +15,9 @@ const SWEEP_LEVELS = [1, 0.98, 0.95, 0.9, 0.85, 0.8, 0.7, 0.6, 0.5];
 const SWEEP_HANDS = 20000;
 const SERIES_CAP = 200;
 
-const signed = (n: number, d = 1) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(d)}`;
-
-/** Red/green cumulative-net area chart (units), stake-style. */
-function NetChart({ series }: { series: number[] }) {
-  const pnl = series[series.length - 1] ?? 0;
-  const up = pnl >= 0;
-  const W = 520;
-  const H = 150;
-  const P = 6;
-  const lo = Math.min(0, ...series);
-  const hi = Math.max(0, ...series);
-  const span = hi - lo || 1;
-  const x = (i: number) => (series.length < 2 ? W : P + (i / (series.length - 1)) * (W - 2 * P));
-  const y = (v: number) => P + (1 - (v - lo) / span) * (H - 2 * P);
-  const z = y(0);
-  const line = series.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
-  const area = `${line} L ${x(series.length - 1).toFixed(1)} ${z.toFixed(1)} L ${x(0).toFixed(1)} ${z.toFixed(1)} Z`;
-  return (
-    <svg className={`sim-chart pnl-panel--${up ? 'up' : 'down'}`} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      <line className="pnl-panel__zero" x1={0} x2={W} y1={z} y2={z} />
-      {series.length >= 2 && (
-        <>
-          <path className="pnl-panel__area" d={area} />
-          <path className="pnl-panel__line" d={line} />
-        </>
-      )}
-    </svg>
-  );
-}
+/** Net units are ½-unit granular; show a decimal only for small values. */
+const fmtUnits = (n: number) =>
+  `${n >= 0 ? '+' : '−'}${Math.abs(n) >= 100 ? Math.round(Math.abs(n)).toLocaleString('en-US') : Math.abs(n).toFixed(1)}`;
 
 function SweepChart({ points, theoretical }: { points: SweepPoint[]; theoretical: number }) {
   const rtps = points.flatMap((p) => [p.actualRTP, p.expectedRTP]).concat(theoretical, 1);
@@ -97,7 +72,7 @@ export function SimScreen({ profile, onBack }: { profile: Profile; onBack: () =>
   useEffect(() => {
     if (!running || !strategy) return;
     if (!shoeRef.current) shoeRef.current = new Shoe(profile.rules.decks);
-    if (!accRef.current) accRef.current = { hands: 0, net: 0, wagered: 0, evLoss: 0, decisions: 0, matched: 0 };
+    if (!accRef.current) accRef.current = emptyBatch();
     let live = true;
     const pump = () => {
       if (!live) return;
@@ -174,76 +149,91 @@ export function SimScreen({ profile, onBack }: { profile: Profile; onBack: () =>
           that realized adherence always reads a bit higher than the discipline you set.)
         </p>
 
-        <div className="sim-controls">
-          <label className="sim-slider">
-            <span>
-              Discipline — how often the player follows the book <b>{(skill * 100).toFixed(0)}%</b>
-            </span>
-            <input
-              type="range"
-              min={50}
-              max={100}
-              step={1}
-              value={skill * 100}
-              onChange={(e) => setSkill(Number(e.target.value) / 100)}
-            />
-          </label>
-          <div className="sim-speed">
-            {SPEEDS.map((s, i) => (
+        <div className="sim-layout">
+          <div className="sim-left">
+            <div className="sim-controls">
+              <label className="sim-slider">
+                <span>
+                  Discipline — how often the player follows the book{' '}
+                  <b>{(skill * 100).toFixed(0)}%</b>
+                </span>
+                <input
+                  type="range"
+                  min={50}
+                  max={100}
+                  step={1}
+                  value={skill * 100}
+                  onChange={(e) => setSkill(Number(e.target.value) / 100)}
+                />
+              </label>
+              <div className="sim-speed">
+                {SPEEDS.map((s, i) => (
+                  <button
+                    key={s.label}
+                    className={`stat-tab ${speedIdx === i ? 'stat-tab--on' : ''}`}
+                    onClick={() => setSpeedIdx(i)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="sim-buttons">
               <button
-                key={s.label}
-                className={`stat-tab ${speedIdx === i ? 'stat-tab--on' : ''}`}
-                onClick={() => setSpeedIdx(i)}
+                className="btn btn--deal"
+                disabled={!strategy}
+                onClick={() => setRunning((v) => !v)}
               >
-                {s.label}
+                {!strategy ? 'Building strategy…' : running ? 'Pause' : stats ? 'Resume' : 'Run'}
               </button>
-            ))}
+              <button
+                className="btn btn--ghost"
+                onClick={reset}
+                disabled={!stats && series.length <= 1}
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="stat-grid sim-grid">
+              <Stat
+                label="Actual RTP"
+                value={actualRTP !== null ? `${(actualRTP * 100).toFixed(2)}%` : '—'}
+                hint="what the cards paid"
+              />
+              <Stat
+                label="Expected RTP"
+                value={expectedRTP !== null ? `${(expectedRTP * 100).toFixed(2)}%` : '—'}
+                hint="theory minus EV lost to misplays"
+              />
+              <Stat
+                label="Theoretical RTP"
+                value={theoretical !== null ? `${(theoretical * 100).toFixed(2)}%` : '…'}
+                hint="perfect play, these rules"
+              />
+              <Stat
+                label="Realized adherence"
+                value={adherence !== null ? `${(adherence * 100).toFixed(1)}%` : '—'}
+                hint="decisions that matched the book"
+              />
+            </div>
+          </div>
+
+          <div className="sim-right">
+            <LiveStatsPanel
+              data={{
+                net: stats?.net ?? 0,
+                wins: stats?.wins ?? 0,
+                losses: stats?.losses ?? 0,
+                played: stats?.hands ?? 0,
+                series,
+              }}
+              format={fmtUnits}
+              onRefresh={reset}
+            />
           </div>
         </div>
-
-        <div className="sim-buttons">
-          <button
-            className="btn btn--deal"
-            disabled={!strategy}
-            onClick={() => setRunning((v) => !v)}
-          >
-            {!strategy ? 'Building strategy…' : running ? 'Pause' : stats ? 'Resume' : 'Run'}
-          </button>
-          <button className="btn btn--ghost" onClick={reset} disabled={!stats && series.length <= 1}>
-            Reset
-          </button>
-        </div>
-
-        <div className="stat-grid sim-grid">
-          <Stat label="Hands" value={stats ? stats.hands.toLocaleString('en-US') : '0'} />
-          <Stat
-            label="Actual RTP"
-            value={actualRTP !== null ? `${(actualRTP * 100).toFixed(2)}%` : '—'}
-            hint="what the cards paid"
-          />
-          <Stat
-            label="Expected RTP"
-            value={expectedRTP !== null ? `${(expectedRTP * 100).toFixed(2)}%` : '—'}
-            hint="theory minus EV lost to misplays"
-          />
-          <Stat
-            label="Theoretical RTP"
-            value={theoretical !== null ? `${(theoretical * 100).toFixed(2)}%` : '…'}
-            hint="perfect play, these rules"
-          />
-          <Stat
-            label="Net"
-            value={stats ? `${signed(stats.net, 0)} u` : '—'}
-            hint="units won or lost"
-          />
-          <Stat
-            label="Realized adherence"
-            value={adherence !== null ? `${(adherence * 100).toFixed(1)}%` : '—'}
-            hint="decisions that matched the book"
-          />
-        </div>
-
-        <NetChart series={series} />
 
         <h3 className="screen-subtitle">
           Skill sweep <i>{SWEEP_HANDS.toLocaleString('en-US')} hands per level</i>

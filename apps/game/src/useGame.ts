@@ -127,6 +127,11 @@ export interface Game {
   shiftUnlocked: () => void;
   /** Cumulative chip P&L after each settled round this session; starts at [0]. */
   pnlSeries: number[];
+  /** Winning / losing rounds in the current live-stats window. */
+  pnlWins: number;
+  pnlLosses: number;
+  /** Re-baseline the live-stats panel (chart + counts) without touching real stats. */
+  resetPnl: () => void;
 }
 
 export function useGame(profile: Profile, mode: Mode): Game {
@@ -148,6 +153,8 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const [tape, setTape] = useState<boolean[]>([]);
   const [unlocked, setUnlocked] = useState<Achievement[]>([]);
   const [pnlSeries, setPnlSeries] = useState<number[]>([0]);
+  const [pnlWins, setPnlWins] = useState(0);
+  const [pnlLosses, setPnlLosses] = useState(0);
 
   const strategyRef = useRef<Strategy | null>(null);
   const shoeRef = useRef<Shoe | null>(null);
@@ -199,6 +206,11 @@ export function useGame(profile: Profile, mode: Mode): Game {
     if (fresh.length > 0) setUnlocked((u) => [...u, ...fresh]);
   }, [profile]);
   const shiftUnlocked = useCallback(() => setUnlocked((u) => u.slice(1)), []);
+  const resetPnl = useCallback(() => {
+    setPnlSeries([0]);
+    setPnlWins(0);
+    setPnlLosses(0);
+  }, []);
 
   // Every graded call — play, bet check, insurance — feeds one streak. A miss
   // breaks it; callers that must freeze it instead (endless: the run ends and
@@ -257,6 +269,8 @@ export function useGame(profile: Profile, mode: Mode): Game {
     const netChips = summary.net * unitBet;
     setLastNet(netChips);
     setPnlSeries((s) => [...s, s[s.length - 1] + netChips]);
+    if (netChips > 0) setPnlWins((w) => w + 1);
+    else if (netChips < 0) setPnlLosses((l) => l + 1);
     setTablePhase('betting');
     if (mode === 'endless' && roll < TABLE_MIN_BET && !endedRef.current) {
       // Can't cover the table minimum: the run is over.
@@ -696,5 +710,8 @@ export function useGame(profile: Profile, mode: Mode): Game {
     unlocked,
     shiftUnlocked,
     pnlSeries,
+    pnlWins,
+    pnlLosses,
+    resetPnl,
   };
 }
