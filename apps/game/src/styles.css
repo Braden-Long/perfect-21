@@ -2918,3 +2918,64 @@ code {
 .calc-evs__best {
   color: var(--gold);
 }
+
+/* ---- rules dialog RTP panels ---- */
+
+.rtp-panel {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+.rtp-panel--good {
+  border-color: rgba(89, 224, 165, 0.45);
+}
+.rtp-panel--ok {
+  border-color: rgba(232, 191, 90, 0.45);
+}
+.rtp-panel--bad {
+  border-color: rgba(214, 84, 62, 0.55);
+  background: rgba(214, 84, 62, 0.06);
+}
+.rtp-panel__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  font-size: 0.86rem;
+}
+.rtp-panel__row b {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.rtp-panel__row--sub {
+  font-size: 0.76rem;
+  opacity: 0.7;
+}
+.rtp-panel__verdict {
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+.rtp-panel--good .rtp-panel__verdict {
+  color: #59e0a5;
+}
+.rtp-panel--ok .rtp-panel__verdict {
+  color: #e8bf5a;
+}
+.rtp-panel--bad .rtp-panel__verdict,
+.rtp-panel--bad .rtp-panel__row b {
+  color: #e0705a;
+}
+.field--bad select {
+  border-color: rgba(214, 84, 62, 0.6);
+  color: #e0705a;
+}
+
+.mode-card--dim {
+  filter: saturate(0.45);
+  opacity: 0.75;
+}

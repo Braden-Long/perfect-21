@@ -102,7 +102,13 @@ export function Menu({
 
         <div className="mode-cards">
           {MODES.map((m) => (
-            <button key={m.id} className={`mode-card mode-card--${m.id}`} onClick={() => onPlay(m.id)}>
+            <button
+              key={m.id}
+              className={`mode-card mode-card--${m.id} ${
+                m.id === 'counting' && profile.countingDecks >= 8 ? 'mode-card--dim' : ''
+              }`}
+              onClick={() => onPlay(m.id)}
+            >
               <span className="mode-card__name">{m.name}</span>
               <span className="mode-card__desc">
                 {m.id === 'counting'
@@ -120,6 +126,13 @@ export function Menu({
               {m.id === 'counting' && countingRankOf(profile).tier && (
                 <span className="mode-card__best">
                   counting rank: {countingRankOf(profile).tier!.name}
+                </span>
+              )}
+              {m.id === 'counting' && profile.countingDecks >= 6 && (
+                <span className="mode-card__best mode-card__best--warn">
+                  {profile.countingDecks >= 8
+                    ? '8-deck shoe: barely worth counting — shrink it in Table rules'
+                    : '6-deck shoe: a thin-edge grind — counters prefer 1–2 decks'}
                 </span>
               )}
             </button>
