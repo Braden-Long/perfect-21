@@ -49,9 +49,13 @@ were actually worth.
   composition-dependent action EVs for any rule combination and generates the chart from first
   principles. The test suite pins the output to the BlackjackInfo charts.
 - **Meaningful stats**: theoretical RTP for your rules, actual RTP (what the cards paid — luck),
-  your expected RTP (theory minus the EV your mistakes gave away), and deviation-from-optimal %.
+  your expected RTP (theory minus the EV your mistakes gave away), deviation-from-optimal %,
+  lifetime P&L, and a **Luck** figure — actual net minus what your play and the rules actually
+  earned you, so you can see how much of your result was the deck and how much was you.
   Counting tables keep an entirely separate ledger (their own hands, net, RTP and per-skill
   accuracy behind a toggle) — learning to count never drags down your basic-strategy record.
+- **A live P&L chart** at the table: a stake-style red/green area chart that redraws as each
+  round settles, green while you're up on the session and red while you're down.
 - **A streak fire**: ten straight correct calls light a flame in the HUD with your run count
   burning inside it — and it gets hotter as the streak grows (amber → orange-red → crimson →
   blue-white at 50+). Works in every mode, drills included; counting mode's bet checks and

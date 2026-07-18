@@ -125,6 +125,8 @@ export interface Game {
   unlocked: Achievement[];
   /** Pop the toast queue once the front achievement has been shown. */
   shiftUnlocked: () => void;
+  /** Cumulative chip P&L after each settled round this session; starts at [0]. */
+  pnlSeries: number[];
 }
 
 export function useGame(profile: Profile, mode: Mode): Game {
@@ -145,6 +147,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const [lastNet, setLastNet] = useState<number | null>(null);
   const [tape, setTape] = useState<boolean[]>([]);
   const [unlocked, setUnlocked] = useState<Achievement[]>([]);
+  const [pnlSeries, setPnlSeries] = useState<number[]>([0]);
 
   const strategyRef = useRef<Strategy | null>(null);
   const shoeRef = useRef<Shoe | null>(null);
@@ -251,7 +254,9 @@ export function useGame(profile: Profile, mode: Mode): Game {
       (round.insured ? (round.insuranceNet + 0.5 * round.seats) * unitBet : 0);
     const roll = bankrollRef.current + returned;
     setRoll(roll);
-    setLastNet(summary.net * unitBet);
+    const netChips = summary.net * unitBet;
+    setLastNet(netChips);
+    setPnlSeries((s) => [...s, s[s.length - 1] + netChips]);
     setTablePhase('betting');
     if (mode === 'endless' && roll < TABLE_MIN_BET && !endedRef.current) {
       // Can't cover the table minimum: the run is over.
@@ -690,5 +695,6 @@ export function useGame(profile: Profile, mode: Mode): Game {
     insure,
     unlocked,
     shiftUnlocked,
+    pnlSeries,
   };
 }

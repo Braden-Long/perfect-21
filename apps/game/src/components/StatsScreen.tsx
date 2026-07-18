@@ -96,6 +96,17 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
   const accuracy =
     profile.lifetimeDecisions > 0 ? profile.lifetimeCorrect / profile.lifetimeDecisions : null;
 
+  // Luck = what the cards did beyond what your play and the rules earned you.
+  // Expected units = the EV your (skill-adjusted) game deserved; the gap to
+  // actual net is pure variance — positive means the deck ran hot for you.
+  const expectedNet =
+    played && theoretical !== null
+      ? (theoretical - 1) * profile.totalRounds - profile.totalEVLoss
+      : null;
+  const luckUnits = expectedNet !== null ? profile.totalNet - expectedNet : null;
+  const luckRTP = actualRTP !== null && expectedRTP !== null ? actualRTP - expectedRTP : null;
+  const signed = (n: number, digits = 1) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(digits)}`;
+
   // Counting is three skills in one rank — show where the leaks are.
   const countingPlays = profile.countingDecisions - profile.countingBets - profile.countingIns;
   const countingPlaysCorrect =
@@ -179,6 +190,20 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
               label="Actual RTP"
               value={actualRTP !== null ? `${(actualRTP * 100).toFixed(1)}%` : '—'}
               hint="what the cards actually paid (luck)"
+            />
+            <Stat
+              label="Lifetime P&L"
+              value={played ? `${signed(profile.totalNet)} u` : '—'}
+              hint="net units won or lost, basic-strategy tables"
+            />
+            <Stat
+              label="Luck"
+              value={luckUnits !== null ? `${signed(luckUnits)} u` : '—'}
+              hint={
+                luckRTP !== null
+                  ? `${signed(luckRTP * 100, 1)}% swing vs. what your play earned`
+                  : 'variance vs. expected — actual minus deserved'
+              }
             />
             <Stat
               label="Deviation from optimal"
