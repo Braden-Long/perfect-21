@@ -68,7 +68,8 @@ export interface Game {
   recommend: () => Recommendation | null;
   theoreticalRTP: number;
   streak: number;
-  bestStreak: number;
+  /** Best endless-run streak on record (the game-over screen's yardstick). */
+  bestEndless: number;
   endlessOver: boolean;
   endReason: EndReason | null;
   /** This session's graded decisions in order — the HUD ✓/✗ tape. */
@@ -108,6 +109,8 @@ export interface Game {
   /** True count: rc / decks remaining. */
   tc: number;
   decksLeft: number;
+  /** Decks physically left in the shoe (no fresh-shoe HUD override) — drives the shoe visual. */
+  shoeDecksLeft: number;
   /** True right after a reshuffle, until the next deal. */
   freshShoe: boolean;
   /** The cut card is out: the next deal reshuffles, so the count resets to 0. */
@@ -173,6 +176,23 @@ export function useGame(profile: Profile, mode: Mode): Game {
   const bet = tablePhase === 'betting' ? chipStack.reduce((s, v) => s + v, 0) : betRef.current;
 
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Every graded call — play, bet check, insurance — feeds one streak. A miss
+  // breaks it; callers that must freeze it instead (endless: the run ends and
+  // the game-over screen shows the final count) skip the call on a miss.
+  const bumpStreak = useCallback(
+    (correct: boolean) => {
+      if (correct) {
+        streakRef.current++;
+        if (streakRef.current > profile.bestCallStreak) {
+          profile.bestCallStreak = streakRef.current;
+        }
+      } else {
+        streakRef.current = 0;
+      }
+    },
+    [profile]
+  );
 
   const setRoll = useCallback(
     (value: number) => {
@@ -265,12 +285,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
       recordCountingDecision(profile, correct, 'bet');
       setTape((prev) => [...prev, correct]);
       // Bet checks are graded calls: they feed (or break) the streak too.
-      if (correct) {
-        streakRef.current++;
-        if (streakRef.current > profile.bestStreak) profile.bestStreak = streakRef.current;
-      } else {
-        streakRef.current = 0;
-      }
+      bumpStreak(correct);
       betFeedback = {
         id: ++feedbackIdRef.current,
         correct,
@@ -311,7 +326,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     round.deal();
     settleIfDone();
     bump();
-  }, [bump, canMultiSeat, chipStack, counting, endlessOver, profile, settleIfDone, setRoll, tablePhase, tableRules, theoreticalRTP]);
+  }, [bump, bumpStreak, canMultiSeat, chipStack, counting, endlessOver, profile, settleIfDone, setRoll, tablePhase, tableRules, theoreticalRTP]);
 
   const setSeats = useCallback(
     (n: number) => {
@@ -449,15 +464,13 @@ export function useGame(profile: Profile, mode: Mode): Game {
         headline,
       });
       play(correct ? 'correct' : 'incorrect');
-      if (correct) {
-        streakRef.current++;
-        if (streakRef.current > profile.bestStreak) profile.bestStreak = streakRef.current;
-      } else if (mode === 'endless') {
+      if (!correct && mode === 'endless') {
+        // The run is over — freeze the streak for the game-over screen.
         endedRef.current = true;
         if (streakRef.current > profile.bestEndless) profile.bestEndless = streakRef.current;
         setEndReason('mistake');
       } else {
-        streakRef.current = 0;
+        bumpStreak(correct);
       }
       if (chosen === 'double' || chosen === 'split') {
         play('chip', 0.1);
@@ -469,7 +482,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
       saveProfile(profile);
       bump();
     },
-    [availableNow, bump, endlessOver, mode, profile, recommend, settleIfDone, setRoll, tableRules]
+    [availableNow, bump, bumpStreak, endlessOver, mode, profile, recommend, settleIfDone, setRoll, tableRules]
   );
 
   const act = useCallback((a: Action) => applyAction(a, false), [applyAction]);
@@ -510,11 +523,11 @@ export function useGame(profile: Profile, mode: Mode): Game {
   // Below the table minimum there's no legal bet left — offer the rebuy.
   const canRebuy = mode !== 'endless' && tablePhase === 'betting' && bankroll < TABLE_MIN_BET;
 
-  // Once the cut card is out, the next deal reshuffles — during the betting
-  // phase the HUD (and the bet check) must reflect the fresh shoe, not the
-  // stale count of the shoe being retired.
-  const shufflePending =
-    counting && tablePhase === 'betting' && (shoeRef.current?.needsShuffle ?? false);
+  // Once the cut card is out, the next deal reshuffles. Every mode gets the
+  // ceremony (the engine's cut card rides at 75% penetration everywhere);
+  // during the betting phase the counting HUD (and the bet check) must
+  // reflect the fresh shoe, not the stale count of the shoe being retired.
+  const shufflePending = tablePhase === 'betting' && (shoeRef.current?.needsShuffle ?? false);
   const cardsLeft = shufflePending
     ? tableRules.decks * 52
     : shoeRef.current?.remaining ?? tableRules.decks * 52;
@@ -550,12 +563,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
       });
       recordCountingDecision(profile, correct, 'insurance');
       setTape((prev) => [...prev, correct]);
-      if (correct) {
-        streakRef.current++;
-        if (streakRef.current > profile.bestStreak) profile.bestStreak = streakRef.current;
-      } else {
-        streakRef.current = 0;
-      }
+      bumpStreak(correct);
       setFeedback({
         id: ++feedbackIdRef.current,
         correct,
@@ -583,7 +591,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
       saveProfile(profile);
       bump();
     },
-    [bump, profile, settleIfDone, setRoll]
+    [bump, bumpStreak, profile, settleIfDone, setRoll]
   );
 
   // Competitive decision clock: reset whenever a new decision point appears.
@@ -620,7 +628,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     recommend,
     theoreticalRTP,
     streak: streakRef.current,
-    bestStreak: profile.bestEndless,
+    bestEndless: profile.bestEndless,
     endlessOver,
     endReason,
     tape,
@@ -651,6 +659,7 @@ export function useGame(profile: Profile, mode: Mode): Game {
     rc: rcNow,
     tc: counting ? trueCount(rcNow, cardsLeft) : 0,
     decksLeft: cardsLeft / 52,
+    shoeDecksLeft: (shoeRef.current?.remaining ?? tableRules.decks * 52) / 52,
     freshShoe,
     shufflePending,
     edge: counting ? counterEdge(theoreticalRTP - 1, trueCount(rcNow, cardsLeft)) : 0,

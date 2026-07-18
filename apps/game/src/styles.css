@@ -650,11 +650,6 @@ a {
   height: calc(86 * var(--u));
 }
 
-.bet-spot--open {
-  min-height: calc(86 * var(--u));
-  min-width: calc(86 * var(--u));
-}
-
 .bet-spot__ring {
   position: absolute;
   width: calc(78 * var(--u));

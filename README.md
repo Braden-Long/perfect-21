@@ -55,7 +55,8 @@ were actually worth.
 - **A streak fire**: ten straight correct calls light a flame in the HUD with your run count
   burning inside it — and it gets hotter as the streak grows (amber → orange-red → crimson →
   blue-white at 50+). Works in every mode, drills included; counting mode's bet checks and
-  insurance calls feed it too. Your longest streak is tracked as a permanent statistic.
+  insurance calls feed it too. At the tables your longest streak is tracked as a permanent
+  statistic — drill flashcards keep the flame session-only, since drills never touch stats.
 - **Persistent rank** from your rolling decision accuracy: Bronze → Silver → Gold → Platinum →
   Diamond → **Perfect 21** (a full 200-decision window without a single miss).
 - **Global leaderboard**: claim a display name — no signup wall, you're playing in seconds —

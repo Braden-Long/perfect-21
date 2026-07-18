@@ -31,13 +31,32 @@ export function CardView({ card, hidden, index }: { card: Card; hidden?: boolean
     el.classList.add('card--dealt');
   }, [card]);
 
-  // The hole card flips over in place — it doesn't get re-dealt.
+  // The hole card flips over in place — it doesn't get re-dealt. A fast
+  // insurance answer can resolve while the card is still flying out of the
+  // shoe (its stagger delay alone runs ~770ms in a 3-seat game), so wait for
+  // the flight to land before flipping instead of snapping it to the spot.
   useLayoutEffect(() => {
-    if (wasHidden.current && !hidden && ref.current) {
-      ref.current.classList.remove('card--dealt', 'card--pop');
-      ref.current.classList.add('card--reveal');
-    }
+    const el = wasHidden.current && !hidden ? ref.current : null;
     wasHidden.current = hidden;
+    if (!el) return;
+    const reveal = () => {
+      el.classList.remove('card--dealt', 'card--pop');
+      el.classList.add('card--reveal');
+    };
+    const flight = (el.getAnimations?.() ?? []).filter(
+      (a): a is CSSAnimation => a instanceof CSSAnimation && a.animationName === 'deal-fly'
+    );
+    if (flight.length === 0) {
+      reveal();
+      return;
+    }
+    let cancelled = false;
+    void Promise.allSettled(flight.map((a) => a.finished)).then(() => {
+      if (!cancelled) reveal();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [hidden]);
 
   const red = card.suit === 'H' || card.suit === 'D';

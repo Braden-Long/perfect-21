@@ -96,6 +96,9 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
   const pct = (num: number, den: number) => (den > 0 ? `${((num / den) * 100).toFixed(1)}%` : '—');
   const cPlayed = profile.countingRounds > 0;
   const cActualRTP = cPlayed ? 1 + profile.countingNet / profile.countingRounds : null;
+  // Profiles from before the ledger split (or rebuilt from server aggregates)
+  // carry counting rounds inside the basic totals — own up to it.
+  const legacyMix = profile.statsMixed === true;
   const cAccuracy =
     profile.countingDecisions > 0 ? profile.countingCorrect / profile.countingDecisions : null;
 
@@ -175,7 +178,15 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
               value={accuracy !== null ? `${((1 - accuracy) * 100).toFixed(1)}%` : '—'}
               hint={`${profile.lifetimeDecisions} lifetime decisions`}
             />
-            <Stat label="Hands played" value={String(profile.totalRounds)} hint="counting tables excluded" />
+            <Stat
+              label="Hands played"
+              value={String(profile.totalRounds)}
+              hint={
+                legacyMix
+                  ? 'may include counting hands from before the stats split'
+                  : 'counting tables excluded'
+              }
+            />
             <Stat
               label="Net units"
               value={played ? `${profile.totalNet >= 0 ? '+' : ''}${profile.totalNet.toFixed(1)}` : '—'}
@@ -193,7 +204,7 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
             <Stat label="Best endless streak" value={String(profile.bestEndless)} />
             <Stat
               label="Longest streak"
-              value={String(profile.bestStreak)}
+              value={String(profile.bestCallStreak)}
               hint="consecutive correct calls, any table mode"
             />
             <Stat
@@ -204,7 +215,15 @@ export function StatsScreen({ profile, onBack }: { profile: Profile; onBack: () 
         ) : profile.countingDecisions > 0 || cPlayed ? (
           <>
             <div className="stat-grid">
-              <Stat label="Hands played" value={String(profile.countingRounds)} hint="counting tables" />
+              <Stat
+                label="Hands played"
+                value={String(profile.countingRounds)}
+                hint={
+                  legacyMix
+                    ? 'rounds before the stats split stayed in the basic ledger'
+                    : 'counting tables'
+                }
+              />
               <Stat
                 label="Net units"
                 value={

@@ -47,8 +47,12 @@ export interface Profile {
   totalNet: number;
   totalEVLoss: number;
   bestEndless: number;
-  /** Longest run of consecutive correct graded calls, across all table modes. */
-  bestStreak: number;
+  /**
+   * Longest run of consecutive correct graded calls, across all table modes.
+   * (Named to stay distinct from bestEndless and the server's endless-streak
+   * field — three different "best streak" stats live across the layers.)
+   */
+  bestCallStreak: number;
   /** Persistent play-chip balance (practice/competitive; endless runs use their own stack). */
   bankroll: number;
   /** Times the player went broke and refilled — a stat, not a shame. */
@@ -81,6 +85,12 @@ export interface Profile {
    */
   countingRounds: number;
   countingNet: number;
+  /**
+   * True when this profile's totalRounds/totalNet may still contain counting
+   * rounds played before the ledger split — that history can't be unmixed, so
+   * the stats screen owns up to it instead of claiming purity.
+   */
+  statsMixed?: boolean;
 }
 
 function fresh(): Profile {
@@ -93,7 +103,7 @@ function fresh(): Profile {
     totalNet: 0,
     totalEVLoss: 0,
     bestEndless: 0,
-    bestStreak: 0,
+    bestCallStreak: 0,
     bankroll: STARTING_BANKROLL,
     rebuys: 0,
     misses: {},
@@ -111,11 +121,25 @@ function fresh(): Profile {
   };
 }
 
+/** Field renames and epoch fixes for profiles saved by older versions. */
+function migrate(partial: Partial<Profile> & { bestStreak?: number }): Partial<Profile> {
+  const { bestStreak, ...rest } = partial;
+  if (bestStreak !== undefined && rest.bestCallStreak === undefined) {
+    rest.bestCallStreak = bestStreak;
+  }
+  // Saved before the counting-ledger split while having counting play on the
+  // books: those rounds are stuck in totalRounds/totalNet forever — flag it.
+  if (rest.countingRounds === undefined && (rest.countingDecisions ?? 0) > 0) {
+    rest.statsMixed = true;
+  }
+  return rest;
+}
+
 export function loadProfile(): Profile {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return fresh();
-    return { ...fresh(), ...(JSON.parse(raw) as Partial<Profile>) };
+    return { ...fresh(), ...migrate(JSON.parse(raw) as Partial<Profile>) };
   } catch {
     return fresh();
   }
@@ -266,7 +290,7 @@ export function restoreProfile(snapshot: unknown, player: PlayerCred): Profile {
     typeof snapshot === 'object' && snapshot !== null && !Array.isArray(snapshot)
       ? (snapshot as Partial<Profile>)
       : {};
-  const p: Profile = { ...fresh(), ...partial, player };
+  const p: Profile = { ...fresh(), ...migrate(partial), player };
   saveProfile(p);
   return p;
 }

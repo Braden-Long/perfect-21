@@ -715,34 +715,6 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
     }
   };
 
-  // When the cut card emerges mid-round, show it being pulled from the shoe
-  // and dropped on the discard tray.
-  const [cutFly, setCutFly] = useState<{ x: number; y: number; dx: number; dy: number } | null>(
-    null
-  );
-  const sawCut = useRef(game.shufflePending);
-  useEffect(() => {
-    if (game.shufflePending && !sawCut.current) {
-      const shoe = document.querySelector('.shoe');
-      const tray = document.querySelector('.discard');
-      const table = document.querySelector('.table');
-      if (shoe && tray && table) {
-        const s = shoe.getBoundingClientRect();
-        const t = tray.getBoundingClientRect();
-        const b = table.getBoundingClientRect();
-        const x = s.left - b.left + s.width * 0.12;
-        const y = s.top - b.top + s.height * 0.55;
-        setCutFly({
-          x,
-          y,
-          dx: t.left - b.left + t.width * 0.4 - x,
-          dy: t.top - b.top + t.height * 0.4 - y,
-        });
-      }
-    }
-    sawCut.current = game.shufflePending;
-  }, [game.shufflePending]);
-
   // After a round settles the cards linger for a beat, then get swept to the
   // discard so the next betting round starts on a clean felt (Evolution-style).
   const [swept, setSwept] = useState(false);
@@ -775,8 +747,9 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
   }, [betting, settledNow, game.endlessOver, game.version]);
 
   // The discard pile grows when the swept cards actually land on it (not at
-  // deal time), and empties the moment a reshuffle refills the shoe.
-  const dealtFrac = game.rules ? 1 - game.decksLeft / game.rules.decks : 0;
+  // deal time), and empties the moment a reshuffle refills the shoe. It runs
+  // off the shoe's physical level, not the HUD's fresh-shoe override.
+  const dealtFrac = game.rules ? 1 - game.shoeDecksLeft / game.rules.decks : 0;
   const [trayFrac, setTrayFrac] = useState(dealtFrac);
   useEffect(() => {
     if (dealtFrac < trayFrac - 0.001) setTrayFrac(dealtFrac);
@@ -788,6 +761,48 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swept]);
+
+  // The stub pull — dealer empties the retiring shoe onto the discards, cut
+  // card on top — waits for the sweep to actually deliver the last round's
+  // cards instead of snapping the felt to its end state at settle time.
+  const [stubPulled, setStubPulled] = useState(false);
+  useEffect(() => {
+    if (!(game.shufflePending && betting)) {
+      setStubPulled(false);
+      return;
+    }
+    if (!swept) return;
+    const t = setTimeout(() => setStubPulled(true), 900);
+    return () => clearTimeout(t);
+  }, [game.shufflePending, betting, swept]);
+
+  // When the stub is pulled, show the cut card flying from the shoe onto the
+  // discard tray.
+  const [cutFly, setCutFly] = useState<{ x: number; y: number; dx: number; dy: number } | null>(
+    null
+  );
+  const sawCut = useRef(false);
+  useEffect(() => {
+    if (stubPulled && !sawCut.current) {
+      const shoe = document.querySelector('.shoe');
+      const tray = document.querySelector('.discard');
+      const table = document.querySelector('.table');
+      if (shoe && tray && table) {
+        const s = shoe.getBoundingClientRect();
+        const t = tray.getBoundingClientRect();
+        const b = table.getBoundingClientRect();
+        const x = s.left - b.left + s.width * 0.12;
+        const y = s.top - b.top + s.height * 0.55;
+        setCutFly({
+          x,
+          y,
+          dx: t.left - b.left + t.width * 0.4 - x,
+          dy: t.top - b.top + t.height * 0.4 - y,
+        });
+      }
+    }
+    sawCut.current = stubPulled;
+  }, [stubPulled]);
 
   const hint = useMemo(
     () => (mode === 'practice' && showHint && playing ? game.recommend() : null),
@@ -806,9 +821,12 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
       } else if ((e.key === ' ' || e.key === 'Enter') && game.canDeal && !shuffling) {
         e.preventDefault();
         requestDeal();
-      } else if (betting && e.key >= '1' && e.key <= '5') {
+      } else if (betting && !shuffling && e.key >= '1' && e.key <= '5') {
+        // No bet edits once the shuffle overlay is up: the queued deal was
+        // approved at this stake, and shrinking it below the table minimum
+        // would silently swallow the deal.
         game.addChip(CHIP_DENOMS[Number(e.key) - 1]);
-      } else if (betting && e.key === 'Backspace') {
+      } else if (betting && !shuffling && e.key === 'Backspace') {
         game.undoChip();
       }
     };
@@ -912,14 +930,12 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
           }}
         >
           <DealerRack />
-          {/* Once the round with the cut card ends, the dealer pulls the
-              stub: the shoe runs empty and the discards take the rest. */}
-          <DealShoe
-            decks={r.decks}
-            fill={game.shufflePending && betting ? 0 : game.decksLeft / r.decks}
-          />
-          <DiscardTray dealt={game.shufflePending && betting ? 1 : trayFrac} />
-          {game.shufflePending && !shuffling && (
+          {/* Once the round with the cut card ends and the sweep has landed,
+              the dealer pulls the stub: the shoe runs empty and the discards
+              take the rest. */}
+          <DealShoe decks={r.decks} fill={stubPulled ? 0 : game.shoeDecksLeft / r.decks} />
+          <DiscardTray dealt={stubPulled ? 1 : trayFrac} />
+          {stubPulled && !shuffling && (
             <div className="shoe-note">CUT CARD OUT — SHUFFLE BEFORE THE NEXT DEAL</div>
           )}
           <FeltText rules={r} counting={mode === 'counting'} />
@@ -1240,7 +1256,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             <div className="pill pill--endless">
               <span>Run</span>
               <b>
-                {game.streak} ✓ · best {game.bestStreak}
+                {game.streak} ✓ · best {game.bestEndless}
               </b>
             </div>
           )}
@@ -1253,7 +1269,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
             <h2>{game.endReason === 'busted' ? 'Busted out' : 'Run over'}</h2>
             <p className="overlay__big">{game.streak}</p>
             <p>correct decisions in a row</p>
-            {game.streak >= game.bestStreak && game.streak > 0 && (
+            {game.streak >= game.bestEndless && game.streak > 0 && (
               <p className="overlay__record">New personal best!</p>
             )}
             {game.endReason === 'busted' ? (

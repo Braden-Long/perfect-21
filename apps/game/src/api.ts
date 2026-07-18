@@ -123,6 +123,8 @@ export async function claimRecovery(
     totalRounds: res.body.stats.rounds,
     totalNet: res.body.stats.net,
     totalEVLoss: res.body.stats.evLoss,
+    // Server aggregates can't split counting play out — say so in the stats.
+    statsMixed: true,
   };
   return { ok: true, profile: restoreProfile(snapshot, player) };
 }
@@ -149,8 +151,11 @@ export async function syncStats(profile: Profile): Promise<boolean> {
       correct: profile.lifetimeCorrect,
       rolling: profile.history.slice(-200),
       bestStreak: profile.bestEndless,
-      rounds: profile.totalRounds,
-      net: profile.totalNet,
+      // The server's rounds/net columns keep their historic meaning — total
+      // volume across every table, counting included. Only the client splits
+      // the two ledgers; the leaderboard keeps counting all hands.
+      rounds: profile.totalRounds + profile.countingRounds,
+      net: profile.totalNet + profile.countingNet,
       evLoss: profile.totalEVLoss,
       rulesKey: rulesKey(profile.rules),
       countingDecisions: profile.countingDecisions,
@@ -198,6 +203,8 @@ export async function recoverAccount(
       totalRounds: res.body.stats.rounds,
       totalNet: res.body.stats.net,
       totalEVLoss: res.body.stats.evLoss,
+      // Server aggregates can't split counting play out — say so in the stats.
+      statsMixed: true,
     };
   return { ok: true, profile: restoreProfile(snapshot, player) };
 }
