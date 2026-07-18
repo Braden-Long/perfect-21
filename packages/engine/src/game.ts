@@ -293,12 +293,15 @@ export class Round {
         if (isBJ) {
           hand.result = 'push';
           hand.net = 0;
-        } else if (hand.surrendered && this.rules.peek) {
+        } else if (hand.surrendered && (this.rules.peek || this.rules.surrender === 'early')) {
+          // Early surrender keeps half the bet even against a blackjack —
+          // that protection is the entire value of the rule. (Peek games
+          // can't actually reach here: the peek settles BJ before actions.)
           hand.result = 'surrender';
           hand.net = -0.5;
         } else {
-          // No-peek: the full stake (doubles/splits included) loses to a
-          // dealer blackjack; a peek game never reaches here with extra bets.
+          // No-peek late surrender (and every other hand): the full stake,
+          // doubles/splits included, loses to a dealer blackjack.
           hand.result = 'lose';
           hand.net = -hand.bet;
         }

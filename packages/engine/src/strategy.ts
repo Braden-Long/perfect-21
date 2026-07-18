@@ -240,7 +240,18 @@ class HandEval {
     };
     if (opts.double) evs.double = this.doubleEV(ranks);
     if (opts.split && ranks.length === 2 && ranks[0] === ranks[1]) evs.split = this.splitEV(ranks[0]);
-    if (opts.surrender) evs.surrender = -0.5;
+    if (opts.surrender) {
+      evs.surrender = -0.5;
+      if (this.rules.peek && this.rules.surrender === 'early' && this.pDealerBJ > 0) {
+        // Early surrender is decided before the peek, so it costs exactly half
+        // the bet unconditionally — even when the dealer turns over blackjack.
+        // Expressed on this frame's conditional (no-dealer-BJ) basis, that is
+        // the value which the standard pBJ·(−1) + (1−pBJ)·EV conversion maps
+        // back to −0.5. Keeping one basis makes every comparison and the RTP
+        // aggregation exact with no special cases downstream.
+        evs.surrender = (-0.5 + this.pDealerBJ) / (1 - this.pDealerBJ);
+      }
+    }
 
     if (!this.rules.peek && this.pDealerBJ > 0) {
       const p = this.pDealerBJ;
@@ -368,26 +379,18 @@ export class Strategy {
     return [...this.chart.values()];
   }
 
-  private pickBest(evs: CellEVs, pDealerBJ: number): { best: Action; fallback: 'hit' | 'stand' } {
+  private pickBest(evs: CellEVs): { best: Action; fallback: 'hit' | 'stand' } {
+    // All EVs share one basis (actionEVs handles the early-surrender frame),
+    // so the best action is a straight comparison.
     const fallback: 'hit' | 'stand' = evs.hit >= evs.stand ? 'hit' : 'stand';
     let best: Action = fallback;
     let bestEV = evs[fallback];
-    for (const a of ['double', 'split'] as const) {
+    for (const a of ['double', 'split', 'surrender'] as const) {
       const ev = evs[a];
       if (ev !== undefined && ev > bestEV) {
         best = a;
         bestEV = ev;
       }
-    }
-    if (evs.surrender !== undefined) {
-      let surrEV = evs.surrender;
-      if (this.rules.surrender === 'early' && this.rules.peek && pDealerBJ > 0) {
-        // Early surrender happens before the peek: compare on an unconditional
-        // basis against the post-peek alternative.
-        surrEV = -0.5;
-        bestEV = pDealerBJ * -1 + (1 - pDealerBJ) * bestEV;
-      }
-      if (surrEV > bestEV) best = 'surrender';
     }
     return { best, fallback };
   }
@@ -402,7 +405,6 @@ export class Strategy {
     const totalWeight = compositions.reduce((s, c) => s + c.weight, 0);
     const acc: CellEVs = { hit: 0, stand: 0 };
     let anyDouble = false;
-    let pBJ = 0;
     const surrender = this.rules.surrender !== 'none';
     for (const { ranks, weight } of compositions) {
       const ev = new HandEval(this.rules, ranks, up);
@@ -417,10 +419,9 @@ export class Strategy {
       }
       if (evs.split !== undefined) acc.split = (acc.split ?? 0) + w * evs.split;
       if (evs.surrender !== undefined) acc.surrender = (acc.surrender ?? 0) + w * evs.surrender;
-      pBJ += w * ev.pDealerBJ;
     }
     if (!anyDouble) delete acc.double;
-    const { best, fallback } = this.pickBest(acc, pBJ);
+    const { best, fallback } = this.pickBest(acc);
     return { key, best, fallback, evs: acc };
   }
 

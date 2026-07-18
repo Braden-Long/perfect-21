@@ -168,6 +168,39 @@ describe('theoretical RTP', () => {
     expect(ls).toBeGreaterThan(base);
     expect(noDas).toBeLessThan(base);
   });
+
+  // Dominance relations that are theorems, not tuning: an option can never
+  // hurt an optimal player, and information (the peek) can never hurt either.
+  // A violation here means the EV aggregation is wrong somewhere.
+  it('every rule knob moves RTP in the mathematically required direction', () => {
+    const base = getStrategy(DEFAULT_RULES).theoreticalRTP();
+    expect(getStrategy({ ...DEFAULT_RULES, soft17: 'h17' }).theoreticalRTP()).toBeLessThan(base);
+    const d911 = getStrategy({ ...DEFAULT_RULES, double: '9-11' }).theoreticalRTP();
+    expect(d911).toBeLessThan(base);
+    expect(getStrategy({ ...DEFAULT_RULES, double: '10-11' }).theoreticalRTP()).toBeLessThan(d911);
+    expect(getStrategy({ ...DEFAULT_RULES, decks: 1 }).theoreticalRTP()).toBeGreaterThan(base);
+    const enhc = getStrategy({ ...DEFAULT_RULES, peek: false }).theoreticalRTP();
+    expect(enhc).toBeLessThan(base);
+    // Surrender ladder, on the no-peek table where all three forms are dealt.
+    const lsEnhc = getStrategy({
+      ...DEFAULT_RULES,
+      peek: false,
+      surrender: 'late',
+    }).theoreticalRTP();
+    const esEnhc = getStrategy({
+      ...DEFAULT_RULES,
+      peek: false,
+      surrender: 'early',
+    }).theoreticalRTP();
+    expect(lsEnhc).toBeGreaterThan(enhc);
+    expect(esEnhc).toBeGreaterThan(lsEnhc);
+    // Early surrender with a peek: decided before the peek, it must cost
+    // exactly half the bet unconditionally — the game stays better than LS.
+    const esPeek = getStrategy({ ...DEFAULT_RULES, surrender: 'early' }).theoreticalRTP();
+    const lsPeek = getStrategy({ ...DEFAULT_RULES, surrender: 'late' }).theoreticalRTP();
+    expect(esPeek).toBeGreaterThan(lsPeek);
+    expect(esPeek).toBeGreaterThan(esEnhc);
+  });
 });
 
 describe('single deck compositions', () => {

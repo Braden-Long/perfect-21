@@ -105,6 +105,27 @@ describe('Round', () => {
     expect(s.net).toBe(-1);
   });
 
+  it('early surrender keeps half the bet against a no-peek dealer blackjack; late loses it all', () => {
+    // player: 10,6 — dealer: 10 up; player surrenders; hole turns out to be an ace.
+    const early = new Round(
+      { ...DEFAULT_RULES, peek: false, surrender: 'early' },
+      rigged([10, 10, 6, 1])
+    );
+    early.deal();
+    early.act('surrender');
+    expect(early.summary().dealerBlackjack).toBe(true);
+    expect(early.summary().net).toBe(-0.5); // decided pre-hole: half stays yours
+
+    const late = new Round(
+      { ...DEFAULT_RULES, peek: false, surrender: 'late' },
+      rigged([10, 10, 6, 1])
+    );
+    late.deal();
+    late.act('surrender');
+    expect(late.summary().dealerBlackjack).toBe(true);
+    expect(late.summary().net).toBe(-1); // late surrender has no blackjack protection
+  });
+
   it('dealer hits soft 17 under H17 rules', () => {
     const rules: Rules = { ...DEFAULT_RULES, soft17: 'h17' };
     // player: 10,8 stand — dealer: A up, 6 hole (soft 17) draws 10 -> hard 17

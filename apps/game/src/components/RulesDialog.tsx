@@ -102,13 +102,27 @@ export function RulesDialog({
           <select value={draft.surrender} onChange={(e) => set('surrender', e.target.value as SurrenderRule)}>
             <option value="none">None</option>
             <option value="late">Late surrender</option>
-            <option value="early">Early surrender</option>
+            <option value="early" disabled={draft.peek}>
+              Early surrender (no-peek tables only)
+            </option>
           </select>
         </label>
 
         <label className="field">
           <span>Dealer peek</span>
-          <select value={draft.peek ? 'yes' : 'no'} onChange={(e) => set('peek', e.target.value === 'yes')}>
+          <select
+            value={draft.peek ? 'yes' : 'no'}
+            onChange={(e) => {
+              const peek = e.target.value === 'yes';
+              // Early surrender is a pre-peek option; at a peek table the
+              // dealer settles blackjack before you could use it.
+              setDraft({
+                ...draft,
+                peek,
+                surrender: peek && draft.surrender === 'early' ? 'late' : draft.surrender,
+              });
+            }}
+          >
             <option value="yes">Peeks for blackjack</option>
             <option value="no">No peek (ENHC)</option>
           </select>

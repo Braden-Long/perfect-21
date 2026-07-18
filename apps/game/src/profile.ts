@@ -135,6 +135,11 @@ function migrate(partial: Partial<Profile> & { bestStreak?: number }): Partial<P
   if (rest.countingRounds === undefined && (rest.countingDecisions ?? 0) > 0) {
     rest.statsMixed = true;
   }
+  // Early surrender is a pre-peek decision; a peek table settles blackjack
+  // before the player could use it, so the combination isn't dealt here.
+  if (rest.rules?.surrender === 'early' && rest.rules.peek) {
+    rest.rules = { ...rest.rules, surrender: 'late' };
+  }
   return rest;
 }
 
