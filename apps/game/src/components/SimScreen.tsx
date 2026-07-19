@@ -13,7 +13,9 @@ const SPEEDS = [
 ];
 const SWEEP_LEVELS = [1, 0.98, 0.95, 0.9, 0.85, 0.8, 0.7, 0.6, 0.5];
 const SWEEP_HANDS = 20000;
-const SERIES_CAP = 200;
+// The chart holds at most this many points spanning the WHOLE run: when it
+// fills, resolution halves (zoom out) instead of scrolling old data off.
+const SERIES_MAX = 400;
 
 function SweepChart({ points, theoretical }: { points: SweepPoint[]; theoretical: number }) {
   const rtps = points.flatMap((p) => [p.actualRTP, p.expectedRTP]).concat(theoretical, 1);
@@ -56,6 +58,10 @@ export function SimScreen({ profile, onBack }: { profile: Profile; onBack: () =>
   const accRef = useRef<SimBatch | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paintRef = useRef(0);
+  // Even sampling for the zoom-out chart: store one point every `stride`
+  // paints; double the stride (and decimate the stored series) when it fills.
+  const strideRef = useRef(1);
+  const sinceRef = useRef(0);
   const skillRef = useRef(skill);
   const speedRef = useRef(speedIdx);
   skillRef.current = skill;
@@ -78,11 +84,18 @@ export function SimScreen({ profile, onBack }: { profile: Profile; onBack: () =>
       if (now - paintRef.current > 40) {
         paintRef.current = now;
         setStats({ ...acc });
-        setSeries((s) => {
-          const next = s.length >= SERIES_CAP ? s.slice(s.length - SERIES_CAP + 1) : s.slice();
-          next.push(acc.net);
-          return next;
-        });
+        // Sample every `stride` paints; when the series fills, halve resolution
+        // (keep every 2nd point) and double the stride — the chart zooms out to
+        // keep the entire run in view instead of scrolling the start off.
+        if (++sinceRef.current >= strideRef.current) {
+          sinceRef.current = 0;
+          setSeries((s) => {
+            const next = s.concat(acc.net);
+            if (next.length <= SERIES_MAX) return next;
+            strideRef.current *= 2;
+            return next.filter((_, i) => i % 2 === 0);
+          });
+        }
       }
       timerRef.current = setTimeout(pump, 0);
     };
@@ -97,6 +110,8 @@ export function SimScreen({ profile, onBack }: { profile: Profile; onBack: () =>
     setRunning(false);
     shoeRef.current = null;
     accRef.current = null;
+    strideRef.current = 1;
+    sinceRef.current = 0;
     setStats(null);
     setSeries([0]);
   };
