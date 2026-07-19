@@ -99,7 +99,6 @@ export function LiveStats({ data }: { data: LiveStatsData }) {
         <div className="ls-cell">
           <span className="ls-label">Net gain</span>
           <span className={`ls-value ${data.net >= 0 ? 'ls-pos' : 'ls-neg'}`}>
-            <Coin />
             {money(data.net)}
           </span>
         </div>
@@ -109,10 +108,7 @@ export function LiveStats({ data }: { data: LiveStatsData }) {
         </div>
         <div className="ls-cell">
           <span className="ls-label">Played</span>
-          <span className="ls-value">
-            <Coin />
-            {compact(data.played)}
-          </span>
+          <span className="ls-value">{compact(data.played)}</span>
         </div>
         <div className="ls-cell">
           <span className="ls-label">Losses</span>
