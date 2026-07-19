@@ -3065,8 +3065,10 @@ code {
 .ls-cell {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.3rem;
   padding: 0 0.2rem;
+  text-align: center;
 }
 .ls-cell:nth-child(odd) {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -3087,6 +3089,7 @@ code {
 .ls-value {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   font-size: 1.35rem;
   font-weight: 600;
