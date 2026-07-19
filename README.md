@@ -245,6 +245,11 @@ subtracted from theory.
 
 ## License / disclaimer
 
+Copyright (C) 2026 Braden Long.
+
+Perfect 21 is free software under the
+[GNU General Public License v3.0 or later](LICENSE).
+
 Educational tool. No real-money play — chips are play tokens with no value, cannot be bought,
 sold, or cashed out — and nothing here constitutes gambling advice. Strategy
 tables are mathematically derived; verify any real-world use against the
