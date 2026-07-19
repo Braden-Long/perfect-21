@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Perfect 21 — a first-person blackjack basic-strategy trainer. Math, not gambling.",
-  "license": "GPL-3.0-or-later",
+  "license": "AGPL-3.0-or-later",
   "author": "Braden Long",
   "workspaces": [
     "packages/*",
