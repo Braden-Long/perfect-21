@@ -195,6 +195,15 @@ export function createApp({
   app.use(express.json({ limit: '32kb' }));
   app.options('/api/*', (_req, res) => void res.sendStatus(204));
 
+  // Expired throttle slots are only ever overwritten per key, so without a
+  // sweep the maps grow by one entry per IP/address ever seen. Swept lazily
+  // when a map gets big — no timers to leak in tests.
+  const SWEEP_AT = 1_000;
+  const sweepExpired = (map: Map<string, { count: number; resetAt: number }>) => {
+    const now = Date.now();
+    for (const [key, slot] of map) if (slot.resetAt < now) map.delete(key);
+  };
+
   // Naive per-IP write throttle: 60 mutations/minute.
   const writes = new Map<string, { count: number; resetAt: number }>();
   const throttle = (req: Request, res: Response, next: NextFunction) => {
@@ -202,6 +211,7 @@ export function createApp({
     const now = Date.now();
     const slot = writes.get(key);
     if (!slot || slot.resetAt < now) {
+      if (writes.size >= SWEEP_AT) sweepExpired(writes);
       writes.set(key, { count: 1, resetAt: now + 60_000 });
       return next();
     }
@@ -216,10 +226,21 @@ export function createApp({
     const now = Date.now();
     const slot = mailSends.get(key);
     if (!slot || slot.resetAt < now) {
+      if (mailSends.size >= SWEEP_AT) sweepExpired(mailSends);
       mailSends.set(key, { count: 1, resetAt: now + 3_600_000 });
       return true;
     }
     return ++slot.count <= max;
+  };
+
+  // /api/leaderboard runs three full-table scans (plus a JSON.parse per row)
+  // and needs no auth, making it the cheapest endpoint to hammer. A short
+  // cache, busted by every stats write, absorbs bursts without serving stale
+  // standings.
+  const BOARD_CACHE_MS = 15_000;
+  let boardCache: { body: object; at: number } | null = null;
+  const bustBoardCache = () => {
+    boardCache = null;
   };
 
   app.get('/api/health', (_req, res) => void res.json({ ok: true, email: Boolean(sendMail) }));
@@ -247,6 +268,7 @@ export function createApp({
       // authority, the SELECT above is just the friendly fast path.
       return void res.status(409).json({ error: 'That name is taken' });
     }
+    bustBoardCache();
     res.status(201).json({ id, secret, name });
   });
 
@@ -311,6 +333,7 @@ export function createApp({
       Date.now(),
       row.id
     );
+    bustBoardCache();
     res.json({ ok: true });
   });
 
@@ -474,6 +497,9 @@ export function createApp({
   });
 
   app.get('/api/leaderboard', (_req, res) => {
+    if (boardCache && Date.now() - boardCache.at < BOARD_CACHE_MS) {
+      return void res.json(boardCache.body);
+    }
     const rows = db
       .prepare('SELECT * FROM players WHERE banned = 0 AND decisions >= ?')
       .all(RANK_MIN_DECISIONS) as unknown as PlayerRow[];
@@ -510,7 +536,9 @@ export function createApp({
         rollingAccuracy: p.countingAccuracy,
         decisions: p.countingDecisions,
       }));
-    res.json({ players, streaks, counters, minDecisions: RANK_MIN_DECISIONS });
+    const body = { players, streaks, counters, minDecisions: RANK_MIN_DECISIONS };
+    boardCache = { body, at: Date.now() };
+    res.json(body);
   });
 
   // ---- admin ----
@@ -575,12 +603,14 @@ export function createApp({
     // Outstanding magic-link tokens die with the account (claim would 403 on
     // the missing player anyway; this is hygiene, not a security gate).
     db.prepare('DELETE FROM login_tokens WHERE player_id = ?').run(req.params.id);
+    bustBoardCache();
     res.json({ deleted: info.changes > 0 });
   });
 
   app.post('/api/admin/players/:id/ban', requireAdmin, (req, res) => {
     const banned = req.body?.banned === true ? 1 : 0;
     const info = db.prepare('UPDATE players SET banned = ? WHERE id = ?').run(banned, req.params.id);
+    bustBoardCache();
     res.json({ updated: info.changes > 0, banned: !!banned });
   });
 
