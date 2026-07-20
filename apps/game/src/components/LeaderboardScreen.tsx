@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { Leaderboard } from '../api';
+import type { Leaderboard, SyncIssue } from '../api';
 import {
   apiAvailable,
   attachEmail,
   fetchLeaderboard,
+  getSyncIssue,
   joinLeaderboard,
   recoverAccount,
   requestEmailRecovery,
@@ -219,20 +220,26 @@ export function LeaderboardScreen({ profile, onBack }: { profile: Profile; onBac
   const [board, setBoard] = useState<Leaderboard | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
   const [emailEnabled, setEmailEnabled] = useState(false);
+  const [syncIssue, setSyncIssue] = useState<SyncIssue>(getSyncIssue());
   const [joinedTick, setJoinedTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setState('loading');
-    Promise.all([fetchLeaderboard(), serverFeatures()]).then(([b, features]) => {
+    // For signed-in players, a sync attempt doubles as a credential/conflict
+    // probe so a silently stalled sync gets surfaced here instead of never.
+    const probe = profile.player ? syncStats(profile) : Promise.resolve(false);
+    Promise.all([fetchLeaderboard(), serverFeatures(), probe]).then(([b, features]) => {
       if (cancelled) return;
       setBoard(b);
       setEmailEnabled(features?.email === true);
+      setSyncIssue(getSyncIssue());
       setState(b ? 'ready' : 'offline');
     });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinedTick]);
 
   return (
@@ -259,6 +266,16 @@ export function LeaderboardScreen({ profile, onBack }: { profile: Profile; onBac
               </>
             )}
             {profile.player && <AccountSection profile={profile} emailEnabled={emailEnabled} />}
+            {profile.player && syncIssue && (
+              <>
+                <p className="join__error">
+                  {syncIssue === 'conflict'
+                    ? 'Cloud sync is paused: the server holds newer progress than this device — probably from playing elsewhere. Restore your progress below to catch this device up.'
+                    : 'Cloud sync is paused: the server no longer accepts this device’s credentials — the account was likely restored on another device. Restore below to reconnect.'}
+                </p>
+                <RestoreSection emailEnabled={emailEnabled} />
+              </>
+            )}
 
             {board.players.length === 0 ? (
               <p className="rules-note">

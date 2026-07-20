@@ -141,6 +141,20 @@ export async function joinLeaderboard(
   return { ok: true, ...res.body };
 }
 
+/**
+ * Why background sync is failing, if it is. 'conflict' = the server holds
+ * newer progress than this device (another device synced past us — our
+ * monotonic counters read as regressions). 'auth' = the secret is no longer
+ * accepted (account restored elsewhere rotated it, or the account is banned).
+ * Cleared by the next successful sync; an unreachable server changes nothing.
+ */
+export type SyncIssue = 'conflict' | 'auth' | null;
+let syncIssue: SyncIssue = null;
+
+export function getSyncIssue(): SyncIssue {
+  return syncIssue;
+}
+
 export async function syncStats(profile: Profile): Promise<boolean> {
   if (!profile.player) return false;
   const res = await request(`/api/players/${profile.player.id}`, {
@@ -165,6 +179,9 @@ export async function syncStats(profile: Profile): Promise<boolean> {
       profile: JSON.stringify(profileSnapshot(profile)),
     }),
   });
+  if (res?.status === 200) syncIssue = null;
+  else if (res?.status === 400) syncIssue = 'conflict';
+  else if (res?.status === 403) syncIssue = 'auth';
   return res?.status === 200;
 }
 
