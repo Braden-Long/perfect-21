@@ -121,7 +121,9 @@ export default function App() {
     case 'admin':
       return <AdminScreen onBack={backToMenu} />;
     case 'recover':
-      return <RecoverScreen token={screen.token} onDone={backToMenu} />;
+      // Keyed by token: an in-page hash change to a different link must reset
+      // the screen (claiming is click-gated, so stale state would stick).
+      return <RecoverScreen key={screen.token} token={screen.token} onDone={backToMenu} />;
     case 'menu':
       return (
         <>
