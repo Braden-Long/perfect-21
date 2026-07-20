@@ -15,6 +15,7 @@ import { HandCalc } from './components/HandCalc';
 import { SimScreen } from './components/SimScreen';
 import { RecoverScreen } from './components/RecoverScreen';
 import { loadProfile, saveProfile } from './profile';
+import { skinById, skinClass, skinUnlocked } from './skins';
 import { useGame } from './useGame';
 import type { Mode } from './useGame';
 
@@ -54,7 +55,12 @@ function GameScreen({ mode, onExit }: { mode: Mode; onExit: () => void }) {
   // Profile is read fresh per mounted game so rule changes apply.
   const [profile] = useState(loadProfile);
   const game = useGame(profile, mode);
-  return <Table game={game} mode={mode} onExit={onExit} />;
+  // A skin only renders while its donation goal is met — a restored or edited
+  // profile that names a locked skin quietly falls back to the classic pair.
+  const skin = skinUnlocked(skinById(profile.deckSkin), profile.donatedUsd)
+    ? skinClass(profile.deckSkin)
+    : '';
+  return <Table game={game} mode={mode} onExit={onExit} skin={skin} />;
 }
 
 function DrillGameScreen({ onExit }: { onExit: () => void }) {
@@ -155,7 +161,13 @@ export default function App() {
               onClose={() => setRulesOpen(false)}
             />
           )}
-          {supportOpen && <SupportDialog onClose={() => setSupportOpen(false)} />}
+          {supportOpen && (
+            <SupportDialog
+              profile={profile}
+              onProfileChange={() => setProfile(loadProfile())}
+              onClose={() => setSupportOpen(false)}
+            />
+          )}
         </>
       );
   }

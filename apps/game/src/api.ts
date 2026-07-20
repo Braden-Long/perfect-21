@@ -1,7 +1,21 @@
 import { rulesKey } from '@perfect21/engine';
 import type { RankTier } from '@perfect21/engine';
 import type { PlayerCred, Profile } from './profile';
-import { parseRecoveryCode, profileSnapshot, restoreProfile } from './profile';
+import { parseRecoveryCode, profileSnapshot, restoreProfile, saveProfile } from './profile';
+
+/**
+ * The server's wallet/donation fields are authoritative (its credited total
+ * is monotonic); fold them into a freshly restored profile.
+ */
+function applyAccountExtras(
+  profile: Profile,
+  extras: { wallet?: string | null; donatedUsd?: number }
+): Profile {
+  profile.linkedWallet = extras.wallet ?? undefined;
+  profile.donatedUsd = Math.max(profile.donatedUsd ?? 0, extras.donatedUsd ?? 0);
+  saveProfile(profile);
+  return profile;
+}
 
 /**
  * Client for the Perfect 21 server. Everything degrades gracefully: when the
@@ -56,10 +70,62 @@ export async function fetchLeaderboard(): Promise<Leaderboard | null> {
   return res?.status === 200 ? res.body : null;
 }
 
-/** Which optional server features are live (email recovery hides itself when unconfigured). */
-export async function serverFeatures(): Promise<{ email: boolean } | null> {
-  const res = await request<{ ok: boolean; email?: boolean }>('/api/health');
-  return res?.status === 200 ? { email: res.body.email === true } : null;
+/** Which optional server features are live (each hides itself when unconfigured). */
+export async function serverFeatures(): Promise<{
+  email: boolean;
+  /** The Solana tip wallet donations are scanned on, or null when disabled. */
+  solana: string | null;
+} | null> {
+  const res = await request<{ ok: boolean; email?: boolean; solana?: string | null }>(
+    '/api/health'
+  );
+  if (res?.status !== 200) return null;
+  return {
+    email: res.body.email === true,
+    solana: typeof res.body.solana === 'string' ? res.body.solana : null,
+  };
+}
+
+/** Link the Solana wallet the player donates from (or unlink with null). */
+export async function attachWallet(
+  profile: Profile,
+  wallet: string | null
+): Promise<{ ok: true; wallet: string | null } | { ok: false; error: string }> {
+  if (!profile.player) return { ok: false, error: 'Claim a name first.' };
+  const res = await request<{ ok?: boolean; wallet?: string | null; error?: string }>(
+    `/api/players/${profile.player.id}/wallet`,
+    { method: 'PUT', body: JSON.stringify({ secret: profile.player.secret, wallet }) }
+  );
+  if (!res) return { ok: false, error: 'Server unreachable — try again later.' };
+  if (res.status !== 200) return { ok: false, error: res.body.error ?? 'Could not save wallet.' };
+  return { ok: true, wallet: res.body.wallet ?? null };
+}
+
+/** Re-scan the chain for the linked wallet's tips; returns the credited total. */
+export async function refreshDonations(
+  profile: Profile
+): Promise<{ ok: true; donatedUsd: number; sol: number; usdc: number } | { ok: false; error: string }> {
+  if (!profile.player) return { ok: false, error: 'Claim a name first.' };
+  const res = await request<{
+    ok?: boolean;
+    donatedUsd?: number;
+    sol?: number;
+    usdc?: number;
+    error?: string;
+  }>(`/api/players/${profile.player.id}/donations`, {
+    method: 'POST',
+    body: JSON.stringify({ secret: profile.player.secret }),
+  });
+  if (!res) return { ok: false, error: 'Server unreachable — try again later.' };
+  if (res.status !== 200) {
+    return { ok: false, error: res.body.error ?? 'Could not check donations.' };
+  }
+  return {
+    ok: true,
+    donatedUsd: res.body.donatedUsd ?? 0,
+    sol: res.body.sol ?? 0,
+    usdc: res.body.usdc ?? 0,
+  };
 }
 
 /** Attach a recovery email to the account (or detach with null). */
@@ -98,6 +164,8 @@ export async function claimRecovery(
     id: string;
     secret: string;
     name: string;
+    wallet?: string | null;
+    donatedUsd?: number;
     profile: unknown;
     stats: {
       decisions: number;
@@ -126,7 +194,7 @@ export async function claimRecovery(
     // Server aggregates can't split counting play out — say so in the stats.
     statsMixed: true,
   };
-  return { ok: true, profile: restoreProfile(snapshot, player) };
+  return { ok: true, profile: applyAccountExtras(restoreProfile(snapshot, player), res.body) };
 }
 
 export async function joinLeaderboard(
@@ -194,6 +262,8 @@ export async function recoverAccount(
   const res = await request<{
     id: string;
     name: string;
+    wallet?: string | null;
+    donatedUsd?: number;
     profile: unknown;
     stats: {
       decisions: number;
@@ -223,7 +293,7 @@ export async function recoverAccount(
       // Server aggregates can't split counting play out — say so in the stats.
       statsMixed: true,
     };
-  return { ok: true, profile: restoreProfile(snapshot, player) };
+  return { ok: true, profile: applyAccountExtras(restoreProfile(snapshot, player), res.body) };
 }
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;

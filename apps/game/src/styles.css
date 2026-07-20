@@ -1525,8 +1525,9 @@ a {
   width: calc(var(--card-w) * 0.78);
   height: calc(var(--card-h) * 0.78);
   border-radius: 8px;
-  background: linear-gradient(160deg, #ffffff 0%, #f0ecdf 100%);
-  color: #1b1b1f;
+  /* Face styling routes through vars so deck skins can retheme it. */
+  background: var(--card-face, linear-gradient(160deg, #ffffff 0%, #f0ecdf 100%));
+  color: var(--card-ink, #1b1b1f);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
   /* Cards animate transform constantly (deal flight, flip, sweep). Keep them
      permanently composited: demoting a card's layer when its animation ends
@@ -1580,7 +1581,7 @@ a {
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 3px, transparent 3px 8px),
     repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.16) 0 3px, transparent 3px 8px),
     var(--back-1, #2d54a6);
-  box-shadow: inset 0 0 0 3px #f0ede2;
+  box-shadow: inset 0 0 0 3px var(--card-edge, #f0ede2);
 }
 
 .card--dealt .card__glide {
@@ -1649,7 +1650,7 @@ a {
 }
 
 .card--red {
-  color: #c22e2e;
+  color: var(--card-red, #c22e2e);
 }
 
 .card__corner {
@@ -3305,4 +3306,244 @@ code {
 .sweep__skill {
   font-size: 0.7rem;
   opacity: 0.7;
+}
+
+/* ---------- deck skins (cosmetic tip thank-yous — see skins.ts) ----------
+   Reshuffles alternate two physical decks (.scene vs .scene--reddeck), so
+   every skin defines a PAIR: a base deck and its opposite. Faces retheme via
+   the --card-* vars; backs replace .card__back outright. All patterns are
+   plain gradients on small cards — cheap to rasterize (the "no expensive
+   paint" rule only guards the giant felt ellipse). */
+
+/* Retro Diner: cream faces; sunset-stripe deck, cool 50s-teal twin. */
+.skin-retro {
+  --card-face: linear-gradient(160deg, #fdf6e3 0%, #f3e2c0 100%);
+  --card-ink: #4a3628;
+  --card-red: #d4482f;
+  --card-edge: #f3e8cf;
+  --back-1: #d4572f;
+  --back-2: #b8431f;
+}
+.skin-retro .card__back {
+  background:
+    radial-gradient(circle at 50% 122%, rgba(247, 212, 136, 0.95) 0 24%, transparent 25%),
+    repeating-linear-gradient(0deg, #e8543f 0 5px, #f2a541 5px 10px, #f7e2b2 10px 14px, #d4572f 14px 19px);
+  border-color: rgba(255, 244, 214, 0.55);
+}
+.skin-retro.scene--reddeck,
+.scene--reddeck.skin-retro {
+  --back-1: #1f7f8f;
+  --back-2: #16636f;
+}
+.skin-retro.scene--reddeck .card__back {
+  background:
+    radial-gradient(circle at 50% 122%, rgba(214, 244, 240, 0.95) 0 24%, transparent 25%),
+    repeating-linear-gradient(0deg, #17727f 0 5px, #2aa3ae 5px 10px, #dff2ee 10px 14px, #1f5f6b 14px 19px);
+  border-color: rgba(223, 242, 238, 0.55);
+}
+
+/* Neon Nights: black cards; magenta-grid deck, cyan-grid twin. */
+.skin-neon {
+  --card-face: linear-gradient(160deg, #1c1727 0%, #120e1c 100%);
+  --card-ink: #6ff3ff;
+  --card-red: #ff5fa2;
+  --card-edge: #2a2340;
+  --back-1: #b3186f;
+  --back-2: #8e1258;
+}
+.skin-neon .card__back {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 95, 162, 0.75) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(90deg, rgba(255, 95, 162, 0.75) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, #241033 0%, #12081d 100%);
+  border-color: rgba(255, 95, 162, 0.6);
+}
+.skin-neon.scene--reddeck {
+  --back-1: #0e7f9e;
+  --back-2: #0a5f78;
+}
+.skin-neon.scene--reddeck .card__back {
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.7) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(90deg, rgba(0, 229, 255, 0.7) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, #082033 0%, #04101d 100%);
+  border-color: rgba(0, 229, 255, 0.55);
+}
+
+/* Art Deco: ivory faces, gold fans on emerald — or on wine. */
+.skin-deco {
+  --card-face: linear-gradient(160deg, #f7f2e4 0%, #ece2c8 100%);
+  --card-ink: #1e4638;
+  --card-red: #8e2f3c;
+  --card-edge: #d8b36c;
+  --back-1: #1c5647;
+  --back-2: #154236;
+}
+.skin-deco .card__back {
+  background:
+    repeating-conic-gradient(from -90deg at 50% 118%, rgba(202, 168, 92, 0.9) 0deg 8deg, transparent 8deg 17deg),
+    linear-gradient(180deg, #143d31 0%, #0c2b22 100%);
+  border-color: rgba(216, 179, 108, 0.65);
+}
+.skin-deco.scene--reddeck {
+  --back-1: #5c1b2e;
+  --back-2: #45121f;
+}
+.skin-deco.scene--reddeck .card__back {
+  background:
+    repeating-conic-gradient(from -90deg at 50% 118%, rgba(202, 168, 92, 0.9) 0deg 8deg, transparent 8deg 17deg),
+    linear-gradient(180deg, #401424 0%, #2a0c16 100%);
+  border-color: rgba(216, 179, 108, 0.65);
+}
+
+/* Holo Foil: iridescent sheen — obsidian deck, silver twin. */
+.skin-holo {
+  --card-face: linear-gradient(160deg, #ffffff 0%, #eef0fa 55%, #f6ecf7 100%);
+  --card-ink: #232336;
+  --card-red: #c22e5c;
+  --card-edge: #e8e9f5;
+  --back-1: #3a2f5c;
+  --back-2: #2b2247;
+}
+.skin-holo .card__back {
+  background:
+    conic-gradient(
+      from 210deg at 50% 40%,
+      rgba(255, 120, 220, 0.5),
+      rgba(120, 240, 255, 0.5),
+      rgba(160, 255, 170, 0.4),
+      rgba(255, 220, 120, 0.45),
+      rgba(255, 120, 220, 0.5)
+    ),
+    linear-gradient(180deg, #201a30 0%, #0d0a18 100%);
+  border-color: rgba(220, 205, 255, 0.5);
+}
+.skin-holo.scene--reddeck {
+  --back-1: #aab0c8;
+  --back-2: #8f96b2;
+}
+.skin-holo.scene--reddeck .card__back {
+  background:
+    conic-gradient(
+      from 30deg at 50% 60%,
+      rgba(255, 120, 220, 0.4),
+      rgba(120, 240, 255, 0.4),
+      rgba(160, 255, 170, 0.35),
+      rgba(255, 220, 120, 0.4),
+      rgba(255, 120, 220, 0.4)
+    ),
+    linear-gradient(180deg, #e8eaf2 0%, #c9ccdc 100%);
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+/* Midnight Sky: a starfield after dusk, and its dawn-burgundy opposite. */
+.skin-midnight {
+  --card-face: linear-gradient(160deg, #f6f1e2 0%, #e9e0c9 100%);
+  --card-ink: #26324a;
+  --card-red: #a8433c;
+  --card-edge: #efe7d2;
+  --back-1: #233d6e;
+  --back-2: #1a2f57;
+}
+.skin-midnight .card__back {
+  background:
+    radial-gradient(circle at 22% 28%, rgba(255, 235, 170, 0.95) 0 1px, transparent 2px),
+    radial-gradient(circle at 72% 14%, rgba(255, 255, 255, 0.85) 0 1px, transparent 2px),
+    radial-gradient(circle at 46% 58%, rgba(255, 235, 170, 0.8) 0 1px, transparent 2px),
+    radial-gradient(circle at 82% 74%, rgba(255, 255, 255, 0.75) 0 1px, transparent 2px),
+    radial-gradient(circle at 30% 84%, rgba(255, 235, 170, 0.7) 0 1px, transparent 2px),
+    radial-gradient(circle at 60% 38%, rgba(255, 255, 255, 0.6) 0 1px, transparent 2px),
+    linear-gradient(200deg, #1b2b52 0%, #0c1430 100%);
+  border-color: rgba(190, 205, 255, 0.45);
+}
+.skin-midnight.scene--reddeck {
+  --back-1: #6e2338;
+  --back-2: #571a2c;
+}
+.skin-midnight.scene--reddeck .card__back {
+  background:
+    radial-gradient(circle at 22% 28%, rgba(255, 224, 189, 0.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 72% 14%, rgba(255, 244, 230, 0.8) 0 1px, transparent 2px),
+    radial-gradient(circle at 46% 58%, rgba(255, 224, 189, 0.75) 0 1px, transparent 2px),
+    radial-gradient(circle at 82% 74%, rgba(255, 244, 230, 0.7) 0 1px, transparent 2px),
+    radial-gradient(circle at 50% 112%, rgba(255, 160, 90, 0.55) 0 34%, transparent 55%),
+    linear-gradient(200deg, #6e2338 0%, #38101f 100%);
+  border-color: rgba(255, 205, 180, 0.45);
+}
+
+/* ---------- skin picker (Support dialog) ---------- */
+
+.skins-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+  margin: 0.8rem 0;
+}
+
+.skin-card {
+  position: relative;
+  padding: 0.55rem 0.5rem 0.5rem;
+  border: 1px solid rgba(216, 179, 108, 0.25);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+}
+
+.skin-card:hover {
+  border-color: rgba(216, 179, 108, 0.6);
+}
+
+.skin-card--on {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold) inset;
+}
+
+.skin-card--locked {
+  cursor: default;
+  opacity: 0.6;
+  filter: saturate(0.45);
+}
+
+.skin-card__name {
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.skin-card__blurb {
+  margin-top: 0.25rem;
+  font-size: 0.68rem;
+  opacity: 0.75;
+  line-height: 1.35;
+}
+
+.skin-card__goal {
+  margin-top: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--gold);
+}
+
+/* The pair preview: each swatch is a mini card back; the second one carries
+   scene--reddeck so it renders the pair's opposite deck. */
+.skin-card__pair {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0.45rem 0 0.15rem;
+}
+
+.skin-swatch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 53px;
+  border-radius: 6px;
+  background: var(--back-2, #274a92);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.skin-swatch .card__back {
+  inset: 3px;
+  border-radius: 4px;
 }

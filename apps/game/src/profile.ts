@@ -63,6 +63,12 @@ export interface Profile {
   handLog: HandLogEntry[];
   /** Client-side display hint only; the server holds the authoritative email. */
   recoveryEmail?: string;
+  /** Display hint for the linked donation wallet; the server is authoritative. */
+  linkedWallet?: string;
+  /** Last donation total the server credited (USD) — drives deck-skin unlocks. */
+  donatedUsd: number;
+  /** Selected deck skin id (see skins.ts); 'classic' is the default pair. */
+  deckSkin: string;
   /** Card-counting mode has its own rank: rolling window + lifetime counters. */
   countingHistory: boolean[];
   countingDecisions: number;
@@ -120,6 +126,8 @@ function fresh(): Profile {
     countingInsCorrect: 0,
     countingRounds: 0,
     countingNet: 0,
+    donatedUsd: 0,
+    deckSkin: 'classic',
     achievements: {},
   };
 }

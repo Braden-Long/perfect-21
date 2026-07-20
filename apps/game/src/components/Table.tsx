@@ -674,7 +674,18 @@ function AchievementToast({ a, onDone }: { a: Achievement; onDone: () => void })
 
 /* ---------- the table ---------- */
 
-export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: () => void }) {
+export function Table({
+  game,
+  mode,
+  onExit,
+  skin = '',
+}: {
+  game: Game;
+  mode: Mode;
+  onExit: () => void;
+  /** Deck-skin scene class from skins.ts (e.g. 'skin-retro'); '' = classic. */
+  skin?: string;
+}) {
   const [showHint, setShowHint] = useState(false);
   const [showLiveStats, setShowLiveStats] = useState(true);
   const { round, feedback, available, session, tablePhase } = game;
@@ -881,7 +892,7 @@ export function Table({ game, mode, onExit }: { game: Game; mode: Mode; onExit: 
     ) : null;
 
   return (
-    <div className={`scene ${redDeck ? 'scene--reddeck' : ''}`}>
+    <div className={`scene ${skin} ${redDeck ? 'scene--reddeck' : ''}`}>
       <header className="hud-top">
         <button className="btn btn--ghost" onClick={onExit}>
           ‹ Lobby
