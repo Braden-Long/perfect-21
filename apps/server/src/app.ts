@@ -237,10 +237,16 @@ export function createApp({
     const id = randomUUID();
     const secret = randomBytes(24).toString('hex');
     const now = Date.now();
-    // Only the hash is stored; the plaintext lives with the client alone.
-    db.prepare(
-      'INSERT INTO players (id, secret_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(id, sha256Hex(secret), name, now, now);
+    try {
+      // Only the hash is stored; the plaintext lives with the client alone.
+      db.prepare(
+        'INSERT INTO players (id, secret_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+      ).run(id, sha256Hex(secret), name, now, now);
+    } catch {
+      // Concurrent claim of the same name: the UNIQUE constraint is the
+      // authority, the SELECT above is just the friendly fast path.
+      return void res.status(409).json({ error: 'That name is taken' });
+    }
     res.status(201).json({ id, secret, name });
   });
 
@@ -370,7 +376,12 @@ export function createApp({
     if (taken) {
       return void res.status(409).json({ error: 'that email is linked to another player' });
     }
-    db.prepare('UPDATE players SET email = ? WHERE id = ?').run(email, row.id);
+    try {
+      db.prepare('UPDATE players SET email = ? WHERE id = ?').run(email, row.id);
+    } catch {
+      // Concurrent attach of the same address: the partial UNIQUE index wins.
+      return void res.status(409).json({ error: 'that email is linked to another player' });
+    }
     res.json({ ok: true, email });
   });
 
@@ -561,6 +572,9 @@ export function createApp({
 
   app.delete('/api/admin/players/:id', requireAdmin, (req, res) => {
     const info = db.prepare('DELETE FROM players WHERE id = ?').run(req.params.id);
+    // Outstanding magic-link tokens die with the account (claim would 403 on
+    // the missing player anyway; this is hygiene, not a security gate).
+    db.prepare('DELETE FROM login_tokens WHERE player_id = ?').run(req.params.id);
     res.json({ deleted: info.changes > 0 });
   });
 
