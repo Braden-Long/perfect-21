@@ -85,6 +85,13 @@ were actually worth.
   offline recovery code covers self-hosted setups without SMTP.
 - **Tip-only monetization**: no ads, no paywall, no wagering. A Support dialog shows the
   site owner's crypto tip jars (configured in `apps/game/src/config.ts`; hidden until set).
+- **Deck skins as donation goals**: five cosmetic skins beyond the house classic — Retro
+  Diner, Neon Nights, Art Deco, Holo Foil, Midnight Sky — each a matched *pair* of decks, so
+  reshuffles keep alternating two backs the way the blue/red house decks do. Cumulative tips
+  in SOL or USDC unlock them ($2 / $4 / $6 / $8 / $10): link the Solana wallet you donate
+  from and the server reads the chain itself (via Helius) — the transaction *is* the receipt,
+  nothing to redeem. Strictly cosmetic: same cards, same odds, same grading, and the credited
+  total never goes down (a SOL price dip can't revoke a skin).
 
 ### Modes
 
@@ -177,9 +184,24 @@ ADMIN_TOKEN=... npm start
 
 Leave them unset and the email UI hides itself — everything else works.
 
+To enable the deck-skin donation goals, point the server at your Solana tip wallet and a
+[Helius](https://helius.dev) API key (the free tier is plenty):
+
+```bash
+HELIUS_API_KEY="your-helius-key" \
+SOLANA_TIP_ADDRESS="YourTipWalletAddress..." \
+ADMIN_TOKEN=... npm start
+```
+
+The server scans transfers into that wallet (native SOL and USDC, via Helius' parsed
+transaction API; SOL valued at the live CoinGecko price), players link the address they send
+from, and skins unlock off the cumulative total. Unset → the whole skins-goal UI hides itself
+and only the free classic decks show as available. (Addresses only — the server never needs,
+and must never see, a private key.)
+
 - **Admin panel**: visit `https://your-site/#admin` and enter the `ADMIN_TOKEN`. Overview
-  stats, player list, ban/unban, delete. Admin routes are disabled entirely if the env var
-  isn't set.
+  stats, player list (including linked wallets and credited donations), ban/unban, delete.
+  Admin routes are disabled entirely if the env var isn't set.
 - **Tip jar**: put your addresses in `apps/game/src/config.ts` and rebuild. Empty entries are
   hidden. (Addresses only — never private keys.)
 - **Database**: single SQLite file (`DB_PATH`, default `apps/server/data/perfect21.db`), via
@@ -211,12 +233,14 @@ not anticheat-grade; the admin panel exists to prune anything that looks wrong.
 ### Trust & privacy model
 
 - No passwords, ever: joining the leaderboard mints a random id + secret stored in your
-  browser's localStorage; optionally attaching an email upgrades that to a recoverable
-  account via single-use magic links. Email is the only personal datum stored, it's used
-  solely for recovery, and it's never shown publicly.
+  browser's localStorage (the server keeps only a hash of it); optionally attaching an email
+  upgrades that to a recoverable account via single-use magic links, and claiming a link
+  rotates the secret so whoever holds the email owns the account. Email is used solely for
+  recovery and never shown publicly.
 - The server stores: display name, decision/win counters, the rolling 200-decision
-  correctness window, a rules key, an opaque profile snapshot (for recovery), and the
-  optional email. No IPs are persisted.
+  correctness window, a rules key, an opaque profile snapshot (for recovery), the optional
+  email, and — if you use the skins goals — your linked Solana address and credited donation
+  total. Wallets and emails are never shown publicly. No IPs are persisted.
 
 ### How strategy derivation works
 
