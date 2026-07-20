@@ -1,29 +1,45 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { claimRecovery } from '../api';
 
-/** Landing screen for magic recovery links (…/#recover=<token>). */
+/**
+ * Landing screen for magic recovery links (…/#recover=<token>).
+ *
+ * The token is single-use, so it must NOT be claimed on page load: corporate
+ * mail scanners prefetch links (some execute the page) and would burn the
+ * token before the player ever saw it. Claiming waits for a real click.
+ */
 export function RecoverScreen({ token, onDone }: { token: string; onDone: () => void }) {
   const [state, setState] = useState<
-    { s: 'working' } | { s: 'done'; name: string } | { s: 'failed'; error: string }
-  >({ s: 'working' });
+    { s: 'ready' } | { s: 'working' } | { s: 'done'; name: string } | { s: 'failed'; error: string }
+  >({ s: 'ready' });
 
-  useEffect(() => {
-    let cancelled = false;
-    claimRecovery(token).then((res) => {
-      if (cancelled) return;
+  const claim = () => {
+    setState({ s: 'working' });
+    void claimRecovery(token).then((res) => {
       setState(
         res.ok ? { s: 'done', name: res.profile.player!.name } : { s: 'failed', error: res.error }
       );
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  };
 
   return (
     <div className="room room--menu">
       <div className="menu">
         <h2 className="screen-title">Restore progress</h2>
+        {state.s === 'ready' && (
+          <>
+            <p className="rules-note">
+              This link restores your rank, bankroll, stats and mistake history on this device.
+              It works once — continue on the device you want to play on.
+            </p>
+            <button className="btn btn--deal" onClick={claim}>
+              Restore on this device
+            </button>
+            <button className="btn btn--ghost" onClick={onDone}>
+              ‹ Not now
+            </button>
+          </>
+        )}
         {state.s === 'working' && <p className="rules-note">Checking your recovery link…</p>}
         {state.s === 'done' && (
           <>
