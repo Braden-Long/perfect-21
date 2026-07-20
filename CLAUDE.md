@@ -9,7 +9,11 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
 - `npm test` — vitest (engine math + server API + jsdom UI smoke tests)
 - `npm run dev` — Vite dev server for the game client (proxies `/api` → :8721)
 - `npm run server` — API/leaderboard server (env: `PORT`, `DB_PATH`, `ADMIN_TOKEN`;
-  email recovery needs `SMTP_URL` + `MAIL_FROM` + `PUBLIC_URL`, hidden otherwise)
+  email recovery needs `SMTP_URL` + `MAIL_FROM` + `PUBLIC_URL`, hidden otherwise).
+  Set `TRUST_PROXY` (e.g. `1`) ONLY when behind a reverse proxy, so the per-IP
+  throttle keys on the real client IP instead of a spoofable `X-Forwarded-For`.
+  The server sends a strict CSP + anti-clickjacking/nosniff/no-referrer/HSTS
+  headers on every response (see `CSP` in `app.ts`)
 - `npm run build` — typecheck + production build of the client
 - `npm start` — production: build client + serve site/API from apps/server
 - `npm run desktop` — build client, open Electron shell (`--smoke` flag loads and exits)

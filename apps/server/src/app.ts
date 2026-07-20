@@ -33,7 +33,68 @@ export interface AppOptions {
   sendMail?: (to: string, subject: string, text: string) => Promise<void>;
   /** Origin used in recovery links, e.g. https://perfect21.example. */
   publicUrl?: string;
+  /**
+   * Express `trust proxy` setting. Enable (e.g. `1` behind one reverse proxy)
+   * only when actually deployed behind a proxy, so the per-IP throttle keys on
+   * the real client IP. Leave undefined when directly exposed — otherwise a
+   * client could spoof `X-Forwarded-For` and evade the throttle.
+   */
+  trustProxy?: boolean | number | string;
 }
+
+/**
+ * Parse the TRUST_PROXY env string into Express's `trust proxy` value.
+ * Case-insensitive; `''`/unset → undefined (don't touch Express's default).
+ * Hop counts above MAX_PROXY_HOPS throw: a typo'd subnet like `10000000`
+ * would otherwise silently trust arbitrarily long X-Forwarded-For chains and
+ * let clients spoof req.ip past the throttle this setting exists to protect.
+ */
+export const MAX_PROXY_HOPS = 10;
+export function parseTrustProxy(raw: string | undefined): boolean | number | string | undefined {
+  const v = raw?.trim().toLowerCase();
+  if (!v) return undefined;
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (/^\d+$/.test(v)) {
+    const n = Number(v);
+    if (n > MAX_PROXY_HOPS) {
+      throw new Error(
+        `TRUST_PROXY=${raw}: hop count ${n} is implausibly large (max ${MAX_PROXY_HOPS}) — ` +
+          `did you mean a subnet like 10.0.0.0/8?`
+      );
+    }
+    return n;
+  }
+  // Subnet or keyword ('loopback', '10.0.0.0/8', …) — Express validates it.
+  return v;
+}
+
+/**
+ * Response security headers. The site has no inline <script> (only a module
+ * src) so `script-src 'self'` holds; React sets inline `style=` attributes, so
+ * `style-src` keeps `'unsafe-inline'`. `frame-ancestors 'none'` (plus the
+ * legacy X-Frame-Options) blocks clickjacking; HSTS is ignored by browsers
+ * over plain HTTP, so it's safe to send unconditionally.
+ *
+ * The CSP constrains the CLIENT the server serves — and the Vite dev server
+ * does NOT send it (dev needs Vite's inline scripts), so external resources
+ * added to apps/game work in dev but break in production. A note in
+ * apps/game/index.html points here, and apps/game/test/csp.test.ts scans the
+ * built bundle for external origins.
+ */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "media-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOKEN_TTL_MS = 15 * 60_000;
@@ -90,18 +151,40 @@ function publicView(row: PlayerRow) {
   };
 }
 
-export function createApp({ db, adminToken, staticDir, sendMail, publicUrl }: AppOptions) {
+export function createApp({
+  db,
+  adminToken,
+  staticDir,
+  sendMail,
+  publicUrl,
+  trustProxy,
+}: AppOptions) {
   const app = express();
-  app.use(express.json({ limit: '32kb' }));
+  // Only trust proxy headers when explicitly configured (see AppOptions): the
+  // throttle keys on req.ip, which reflects X-Forwarded-For only when trusted.
+  if (trustProxy !== undefined) app.set('trust proxy', trustProxy);
 
-  // Same-origin in production; permissive CORS keeps local dev and static
-  // mirrors working. Nothing here is sensitive without a player secret.
+  // Constant headers on every response, in one hop registered before
+  // express.json so even a body-parser error (413 too large, 400 malformed
+  // JSON) carries all of them:
+  // - security: CSP, anti-clickjacking, no MIME sniffing, no referrer leak
+  //   (harmless on API JSON, essential on the served HTML);
+  // - CORS: same-origin in production; permissive CORS keeps local dev and
+  //   static mirrors working — nothing here is sensitive without a player
+  //   secret.
   app.use((_req, res, next) => {
+    res.setHeader('Content-Security-Policy', CSP);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
     next();
   });
+
+  app.use(express.json({ limit: '32kb' }));
   app.options('/api/*', (_req, res) => void res.sendStatus(204));
 
   // Naive per-IP write throttle: 60 mutations/minute.

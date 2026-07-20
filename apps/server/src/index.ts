@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { createApp, defaultStaticDir } from './app';
+import { createApp, defaultStaticDir, parseTrustProxy } from './app';
 import { openDb } from './db';
 import { createMailer } from './mail';
 
@@ -9,12 +9,18 @@ const adminToken = process.env.ADMIN_TOKEN;
 const sendMail = createMailer();
 const publicUrl = process.env.PUBLIC_URL ?? `http://localhost:${port}`;
 
+// Set TRUST_PROXY when behind a reverse proxy so the throttle sees real client
+// IPs: `1` (one proxy hop), `true`, or a subnet like `10.0.0.0/8`. Unset =
+// don't trust forwarded headers (correct when the server is directly exposed).
+const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
+
 const app = createApp({
   db: openDb(dbPath),
   adminToken,
   staticDir: defaultStaticDir(),
   sendMail: sendMail ?? undefined,
   publicUrl,
+  trustProxy,
 });
 
 app.listen(port, () => {

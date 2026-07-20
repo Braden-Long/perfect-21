@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      In production this page ships with a strict Content-Security-Policy set
+      by the server (`CSP` in apps/server/src/app.ts): every resource must be
+      self-hosted ('self' / data:). The Vite dev server does NOT send it, so an
+      external font/image/script added here or in src/ works in dev but is
+      silently blocked in production. Keep assets self-hosted, or update the
+      server CSP; test/csp.test.ts scans the built bundle for violations.
+    -->
     <title>Perfect 21</title>
   </head>
   <body>

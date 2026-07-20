@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Server } from 'node:http';
-import { createApp } from '../src/app';
+import { MAX_PROXY_HOPS, createApp, parseTrustProxy } from '../src/app';
 import { openDb } from '../src/db';
 
 let server: Server;
@@ -44,6 +44,62 @@ function stats(over: Record<string, unknown> = {}) {
     ...over,
   };
 }
+
+describe('security headers', () => {
+  it('sends CSP + anti-clickjacking/nosniff/referrer/HSTS on every response', async () => {
+    const res = await fetch(base + '/api/health');
+    const csp = res.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
+    expect(res.headers.get('x-frame-options')).toBe('DENY');
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(res.headers.get('strict-transport-security')).toContain('max-age=');
+  });
+
+  it('still sends the headers when the JSON body parser rejects the request', async () => {
+    // Malformed JSON makes express.json() error before routing; because the
+    // headers middleware runs first, the 400 still carries our anti-clickjacking
+    // / referrer / HSTS headers. (Express's finalhandler hardens CSP further to
+    // default-src 'none' on error pages, which is strictly safer than ours.)
+    const res = await fetch(base + '/api/players', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{ not valid json',
+    });
+    expect(res.status).toBe(400);
+    expect(res.headers.get('x-frame-options')).toBe('DENY');
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(res.headers.get('strict-transport-security')).toContain('max-age=');
+    expect(res.headers.get('content-security-policy') ?? '').toContain('default-src');
+    // CORS shares the pre-parser middleware, so cross-origin callers can read
+    // even parser errors.
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+  });
+});
+
+describe('parseTrustProxy', () => {
+  it('maps env strings to Express trust-proxy values', () => {
+    expect(parseTrustProxy(undefined)).toBeUndefined();
+    expect(parseTrustProxy('')).toBeUndefined();
+    expect(parseTrustProxy('  ')).toBeUndefined();
+    expect(parseTrustProxy('true')).toBe(true);
+    expect(parseTrustProxy('True')).toBe(true); // env-file conventions vary
+    expect(parseTrustProxy('FALSE')).toBe(false);
+    expect(parseTrustProxy('1')).toBe(1);
+    expect(parseTrustProxy('01')).toBe(1); // must not reach proxy-addr as a string
+    expect(parseTrustProxy(' 2 ')).toBe(2);
+    expect(parseTrustProxy('10.0.0.0/8')).toBe('10.0.0.0/8');
+    expect(parseTrustProxy('loopback')).toBe('loopback');
+  });
+
+  it('rejects implausible hop counts instead of trusting arbitrary X-Forwarded-For chains', () => {
+    expect(() => parseTrustProxy('10000000')).toThrow(/TRUST_PROXY/);
+    expect(parseTrustProxy(String(MAX_PROXY_HOPS))).toBe(MAX_PROXY_HOPS);
+    expect(() => parseTrustProxy(String(MAX_PROXY_HOPS + 1))).toThrow(/hop count/);
+  });
+});
 
 describe('players API', () => {
   let id: string;
