@@ -29,6 +29,10 @@ export interface PlayerRow {
   profile: string;
   /** Optional email for magic-link recovery. Never shown publicly. */
   email: string | null;
+  /** Optional Solana wallet the player donates FROM. Never shown publicly. */
+  wallet: string | null;
+  /** Highest USD donation total ever credited — monotonic, drives skin goals. */
+  donated_usd: number;
   counting_decisions: number;
   counting_correct: number;
   /** JSON array of booleans — the rolling counting-rank window (≤200). */
@@ -61,6 +65,8 @@ export function openDb(path: string): DatabaseSync {
       updated_at INTEGER NOT NULL,
       profile TEXT NOT NULL DEFAULT '',
       email TEXT,
+      wallet TEXT,
+      donated_usd REAL NOT NULL DEFAULT 0,
       counting_decisions INTEGER NOT NULL DEFAULT 0,
       counting_correct INTEGER NOT NULL DEFAULT 0,
       counting_rolling TEXT NOT NULL DEFAULT '[]'
@@ -71,6 +77,8 @@ export function openDb(path: string): DatabaseSync {
   for (const stmt of [
     `ALTER TABLE players ADD COLUMN profile TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE players ADD COLUMN email TEXT`,
+    `ALTER TABLE players ADD COLUMN wallet TEXT`,
+    `ALTER TABLE players ADD COLUMN donated_usd REAL NOT NULL DEFAULT 0`,
     `ALTER TABLE players ADD COLUMN counting_decisions INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE players ADD COLUMN counting_correct INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE players ADD COLUMN counting_rolling TEXT NOT NULL DEFAULT '[]'`,
@@ -99,6 +107,7 @@ export function openDb(path: string): DatabaseSync {
   }
   db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS players_email ON players (email) WHERE email IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS players_wallet ON players (wallet) WHERE wallet IS NOT NULL;
     CREATE TABLE IF NOT EXISTS login_tokens (
       token_hash TEXT PRIMARY KEY,
       player_id TEXT NOT NULL,

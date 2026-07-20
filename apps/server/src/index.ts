@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { createApp, defaultStaticDir, parseTrustProxy } from './app';
 import { openDb } from './db';
 import { createMailer } from './mail';
+import { createDonationChecker } from './solana';
 
 const port = Number(process.env.PORT ?? 8721);
 const dbPath = process.env.DB_PATH ?? fileURLToPath(new URL('../data/perfect21.db', import.meta.url));
@@ -25,12 +26,17 @@ if (sendMail && !process.env.PUBLIC_URL) {
 // don't trust forwarded headers (correct when the server is directly exposed).
 const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
 
+// Deck-skin donation goals: needs HELIUS_API_KEY + SOLANA_TIP_ADDRESS.
+const solana = createDonationChecker();
+
 const app = createApp({
   db: openDb(dbPath),
   adminToken,
   staticDir: defaultStaticDir(),
   sendMail: sendMail ?? undefined,
   publicUrl,
+  checkDonations: solana?.check,
+  solanaTipAddress: solana?.tipAddress,
   trustProxy,
 });
 
@@ -40,5 +46,8 @@ app.listen(port, () => {
   console.log(`  admin: ${adminToken ? 'enabled' : 'DISABLED (set ADMIN_TOKEN to enable)'}`);
   console.log(
     `  email recovery: ${sendMail ? `enabled (links point at ${publicUrl})` : 'DISABLED (set SMTP_URL and MAIL_FROM to enable)'}`
+  );
+  console.log(
+    `  deck-skin donations: ${solana ? `enabled (tip wallet ${solana.tipAddress})` : 'DISABLED (set HELIUS_API_KEY and SOLANA_TIP_ADDRESS to enable)'}`
   );
 });

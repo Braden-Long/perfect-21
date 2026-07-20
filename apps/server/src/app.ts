@@ -8,6 +8,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import { RANK_MIN_DECISIONS, computeRank } from '@perfect21/engine';
 import { sha256Hex } from './db';
 import type { PlayerRow } from './db';
+import { SOLANA_ADDRESS_RE } from './solana';
+import type { DonationChecker } from './solana';
 
 const NAME_RE = /^[A-Za-z0-9 _.\-]{3,20}$/;
 const RESERVED = new Set(['admin', 'moderator', 'system', 'dealer', 'perfect21', 'perfect 21']);
@@ -34,6 +36,10 @@ export interface AppOptions {
   sendMail?: (to: string, subject: string, text: string) => Promise<void>;
   /** Origin used in recovery links, e.g. https://perfect21.example. */
   publicUrl?: string;
+  /** Solana donation lookup (deck-skin goals); omit to disable the feature. */
+  checkDonations?: DonationChecker;
+  /** The tip wallet donations arrive at — advertised to clients via /api/health. */
+  solanaTipAddress?: string;
   /**
    * Express `trust proxy` setting. Enable (e.g. `1` behind one reverse proxy)
    * only when actually deployed behind a proxy, so the per-IP throttle keys on
@@ -167,6 +173,8 @@ export function createApp({
   staticDir,
   sendMail,
   publicUrl,
+  checkDonations,
+  solanaTipAddress,
   trustProxy,
 }: AppOptions) {
   const app = express();
@@ -245,7 +253,15 @@ export function createApp({
     boardCache = null;
   };
 
-  app.get('/api/health', (_req, res) => void res.json({ ok: true, email: Boolean(sendMail) }));
+  app.get('/api/health', (_req, res) =>
+    void res.json({
+      ok: true,
+      email: Boolean(sendMail),
+      // Non-null advertises the deck-skin donation goals AND tells the client
+      // exactly which address is being scanned — no second config to drift.
+      solana: (checkDonations && solanaTipAddress) || null,
+    })
+  );
 
   /** Join the leaderboard: returns the credentials the client stores locally. */
   app.post('/api/players', throttle, (req, res) => {
@@ -366,6 +382,8 @@ export function createApp({
       id: row.id,
       name: row.name,
       profile: snapshot,
+      wallet: row.wallet ?? null,
+      donatedUsd: row.donated_usd ?? 0,
       // Fallback for accounts synced before profile snapshots existed.
       stats: {
         decisions: row.decisions,
@@ -409,6 +427,75 @@ export function createApp({
       return void res.status(409).json({ error: 'that email is linked to another player' });
     }
     res.json({ ok: true, email });
+  });
+
+  // ---- deck-skin donation goals (optional, Solana) ----
+
+  /**
+   * Link (or unlink with wallet: null) the Solana address the player donates
+   * from. First come, first served per address, like emails: senders are
+   * attributed by on-chain `from` address, which can't be forged, but an
+   * address can only back one account.
+   */
+  app.put('/api/players/:id/wallet', throttle, (req, res) => {
+    const row = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id) as
+      | PlayerRow
+      | undefined;
+    if (!row || !secretOk(req.body?.secret, row)) {
+      return void res.status(403).json({ error: 'unknown player or bad secret' });
+    }
+    if (row.banned) return void res.status(403).json({ error: 'account banned' });
+    if (req.body?.wallet === null) {
+      db.prepare('UPDATE players SET wallet = NULL WHERE id = ?').run(row.id);
+      return void res.json({ ok: true, wallet: null });
+    }
+    const wallet = typeof req.body?.wallet === 'string' ? req.body.wallet.trim() : '';
+    if (!SOLANA_ADDRESS_RE.test(wallet)) {
+      return void res.status(400).json({ error: 'that does not look like a Solana address' });
+    }
+    if (wallet === solanaTipAddress) {
+      return void res.status(400).json({ error: 'that is the tip jar itself — link the wallet you send from' });
+    }
+    const taken = db.prepare('SELECT 1 FROM players WHERE wallet = ? AND id != ?').get(wallet, row.id);
+    if (taken) {
+      return void res.status(409).json({ error: 'that wallet is linked to another player' });
+    }
+    try {
+      db.prepare('UPDATE players SET wallet = ? WHERE id = ?').run(wallet, row.id);
+    } catch {
+      return void res.status(409).json({ error: 'that wallet is linked to another player' });
+    }
+    res.json({ ok: true, wallet });
+  });
+
+  /**
+   * Re-scan the chain and credit the player's donation total. The credited
+   * value is monotonic: SOL is valued at the CURRENT price, so a price dip
+   * must never take a skin away that an earlier scan granted.
+   */
+  app.post('/api/players/:id/donations', throttle, (req, res) => {
+    if (!checkDonations) {
+      return void res.status(503).json({ error: 'donation goals are not configured on this server' });
+    }
+    const row = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id) as
+      | PlayerRow
+      | undefined;
+    if (!row || !secretOk(req.body?.secret, row)) {
+      return void res.status(403).json({ error: 'unknown player or bad secret' });
+    }
+    if (row.banned) return void res.status(403).json({ error: 'account banned' });
+    if (!row.wallet) {
+      return void res.status(400).json({ error: 'link the wallet you donate from first' });
+    }
+    checkDonations(row.wallet)
+      .then((scan) => {
+        const credited = Math.max(row.donated_usd ?? 0, scan.usd);
+        db.prepare('UPDATE players SET donated_usd = ? WHERE id = ?').run(credited, row.id);
+        res.json({ ok: true, donatedUsd: credited, sol: scan.sol, usdc: scan.usdc });
+      })
+      .catch(() => {
+        res.status(502).json({ error: 'could not reach the Solana network — try again in a minute' });
+      });
   });
 
   /** Send a magic recovery link. Always claims success — no address enumeration. */
@@ -486,6 +573,8 @@ export function createApp({
       secret,
       name: row.name,
       email: row.email,
+      wallet: row.wallet ?? null,
+      donatedUsd: row.donated_usd ?? 0,
       profile: snapshot,
       stats: {
         decisions: row.decisions,
@@ -596,6 +685,8 @@ export function createApp({
         rulesKey: r.rules_key,
         createdAt: r.created_at,
         email: r.email ?? null,
+        wallet: r.wallet ?? null,
+        donatedUsd: r.donated_usd ?? 0,
         // Admin-only: lifetime net units, for spotting anomalous accounts.
         net: r.net,
       })),

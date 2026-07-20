@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { MAX_PROXY_HOPS, createApp, parseTrustProxy } from '../src/app';
 import { openDb, sha256Hex } from '../src/db';
+import { SOLANA_ADDRESS_RE, sumTransfers } from '../src/solana';
 
 let server: Server;
 let base: string;
@@ -353,6 +354,144 @@ describe('accounts & recovery', () => {
 
     // Single use: the same link never works twice.
     expect((await mjson('POST', '/api/recover/claim', { token })).status).toBe(403);
+  });
+});
+
+describe('solana donation goals', () => {
+  const TIP = 'TipJar1111111111111111111111111111111111111';
+  const DONOR = 'Donor111111111111111111111111111111111111111';
+
+  it('accepts plausible base58 addresses only', () => {
+    expect(SOLANA_ADDRESS_RE.test(TIP)).toBe(true);
+    expect(SOLANA_ADDRESS_RE.test('0xdeadbeef')).toBe(false); // hex, not base58
+    expect(SOLANA_ADDRESS_RE.test('short')).toBe(false);
+  });
+
+  it('sums only SOL and USDC sent to the tip address', () => {
+    const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    const txs = [
+      {
+        signature: 'a',
+        nativeTransfers: [
+          { fromUserAccount: DONOR, toUserAccount: TIP, amount: 1_500_000_000 },
+          { fromUserAccount: 'someone-else', toUserAccount: TIP, amount: 9_000_000_000 },
+          { fromUserAccount: DONOR, toUserAccount: 'not-the-tip', amount: 7_000_000_000 },
+        ],
+      },
+      {
+        signature: 'b',
+        tokenTransfers: [
+          { fromUserAccount: DONOR, toUserAccount: TIP, mint: USDC, tokenAmount: 2.5 },
+          { fromUserAccount: DONOR, toUserAccount: TIP, mint: 'SomeMemeCoin', tokenAmount: 999 },
+        ],
+      },
+    ];
+    expect(sumTransfers(txs, DONOR, TIP)).toEqual({ sol: 1.5, usdc: 2.5 });
+  });
+
+  describe('endpoints', () => {
+    let skinServer: Server;
+    let skinBase: string;
+    // The fake chain: refresh sees whatever the test sets here.
+    let chainUsd = 0;
+
+    beforeAll(async () => {
+      const app = createApp({
+        db: openDb(':memory:'),
+        solanaTipAddress: TIP,
+        checkDonations: async (wallet) =>
+          wallet === DONOR
+            ? { usd: chainUsd, sol: chainUsd / 2, usdc: 0 }
+            : { usd: 0, sol: 0, usdc: 0 },
+      });
+      await new Promise<void>((resolve) => {
+        skinServer = app.listen(0, resolve);
+      });
+      const addr = skinServer.address();
+      if (typeof addr === 'string' || !addr) throw new Error('no port');
+      skinBase = `http://127.0.0.1:${addr.port}`;
+    });
+
+    afterAll(() => new Promise<void>((resolve) => skinServer.close(() => resolve())));
+
+    async function sjson(method: string, path: string, body?: unknown) {
+      const res = await fetch(skinBase + path, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      return { status: res.status, body: (await res.json()) as any };
+    }
+
+    it('advertises the tip wallet in health and gates the endpoints', async () => {
+      expect((await sjson('GET', '/api/health')).body.solana).toBe(TIP);
+      // The main test server has no checker configured.
+      expect((await json('GET', '/api/health')).body.solana).toBe(null);
+    });
+
+    it('links a wallet, uniquely, and credits donations monotonically', async () => {
+      const joined = await sjson('POST', '/api/players', { name: 'Whale' });
+      const { id, secret } = joined.body;
+
+      // must link a wallet before refreshing
+      expect((await sjson('POST', `/api/players/${id}/donations`, { secret })).status).toBe(400);
+      // junk addresses and the tip jar itself are rejected
+      expect(
+        (await sjson('PUT', `/api/players/${id}/wallet`, { secret, wallet: '0xdeadbeef' })).status
+      ).toBe(400);
+      expect(
+        (await sjson('PUT', `/api/players/${id}/wallet`, { secret, wallet: TIP })).status
+      ).toBe(400);
+      expect(
+        (await sjson('PUT', `/api/players/${id}/wallet`, { secret: 'wrong', wallet: DONOR })).status
+      ).toBe(403);
+      const ok = await sjson('PUT', `/api/players/${id}/wallet`, { secret, wallet: DONOR });
+      expect(ok.status).toBe(200);
+      expect(ok.body.wallet).toBe(DONOR);
+
+      // one wallet backs one account
+      const other = await sjson('POST', '/api/players', { name: 'Copycat' });
+      expect(
+        (
+          await sjson('PUT', `/api/players/${other.body.id}/wallet`, {
+            secret: other.body.secret,
+            wallet: DONOR,
+          })
+        ).status
+      ).toBe(409);
+
+      chainUsd = 4.2;
+      const first = await sjson('POST', `/api/players/${id}/donations`, { secret });
+      expect(first.status).toBe(200);
+      expect(first.body.donatedUsd).toBeCloseTo(4.2);
+
+      // a SOL price dip must never claw back a credited total
+      chainUsd = 3.1;
+      const second = await sjson('POST', `/api/players/${id}/donations`, { secret });
+      expect(second.body.donatedUsd).toBeCloseTo(4.2);
+
+      chainUsd = 10;
+      const third = await sjson('POST', `/api/players/${id}/donations`, { secret });
+      expect(third.body.donatedUsd).toBeCloseTo(10);
+
+      // recovery carries the wallet and credited total to the next device
+      const rec = await sjson('POST', '/api/players/recover', { id, secret });
+      expect(rec.body.wallet).toBe(DONOR);
+      expect(rec.body.donatedUsd).toBeCloseTo(10);
+
+      // unlink frees the address for someone else
+      expect(
+        (await sjson('PUT', `/api/players/${id}/wallet`, { secret, wallet: null })).body.wallet
+      ).toBe(null);
+      expect(
+        (
+          await sjson('PUT', `/api/players/${other.body.id}/wallet`, {
+            secret: other.body.secret,
+            wallet: DONOR,
+          })
+        ).status
+      ).toBe(200);
+    });
   });
 });
 
