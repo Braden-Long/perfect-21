@@ -17,9 +17,12 @@ export const SITE = {
   feedbackUrl: '',
 
   /**
-   * Tip-jar addresses (tip-only monetization: no ads, no wagering, no paywall).
+   * Tip-jar addresses (tips are the only monetization: no ads, no wagering,
+   * no paywall — cumulative tips unlock cosmetic deck skins, see skins.ts).
    * Fill in your own addresses; empty entries are hidden from the Support
-   * dialog. NEVER put private keys or seed phrases anywhere near this file.
+   * dialog. The Solana address the SERVER scans for skin goals is configured
+   * separately via SOLANA_TIP_ADDRESS (the dialog shows that one too).
+   * NEVER put private keys or seed phrases anywhere near this file.
    */
   tips: {
     Bitcoin: '',

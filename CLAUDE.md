@@ -3,13 +3,16 @@
 Blackjack basic-strategy trainer. npm workspaces monorepo, TypeScript strict everywhere.
 
 **Product decision (2026-07): web-first.** The website is the product; Electron/Steam is a
-kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/config.ts`).
+kept-open option, not the target. Monetization is tips only (`apps/game/src/config.ts`), with
+cosmetic deck skins as donation-goal thank-yous (see skins invariant below) — nothing gameplay-
+affecting is ever for sale.
 
 ## Commands
 - `npm test` — vitest (engine math + server API + jsdom UI smoke tests)
 - `npm run dev` — Vite dev server for the game client (proxies `/api` → :8721)
 - `npm run server` — API/leaderboard server (env: `PORT`, `DB_PATH`, `ADMIN_TOKEN`;
-  email recovery needs `SMTP_URL` + `MAIL_FROM` + `PUBLIC_URL`, hidden otherwise).
+  email recovery needs `SMTP_URL` + `MAIL_FROM` + `PUBLIC_URL`, hidden otherwise;
+  deck-skin donation goals need `HELIUS_API_KEY` + `SOLANA_TIP_ADDRESS`, hidden otherwise).
   Set `TRUST_PROXY` (e.g. `1`) ONLY when behind a reverse proxy, so the per-IP
   throttle keys on the real client IP instead of a spoofable `X-Forwarded-For`.
   The server sends a strict CSP + anti-clickjacking/nosniff/no-referrer/HSTS
@@ -80,5 +83,12 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   claims only on an explicit click so mail scanners can't burn the single-use token. When
   another device syncs ahead, this device's syncs 400 by design (monotonic counters) and the
   leaderboard screen surfaces the stall (`getSyncIssue` in api.ts) with restore tools.
+- Deck skins (apps/game/src/skins.ts + `.skin-*` in styles.css) are cosmetic-only donation
+  thank-yous: each is a PAIR (base deck + `scene--reddeck` opposite) because reshuffles
+  alternate two physical decks. Unlocks derive from `players.donated_usd`, credited by
+  scanning the Solana tip wallet (apps/server/src/solana.ts): players link the wallet they
+  send FROM (unique, first-come like emails), SOL is valued at the current price + USDC at $1,
+  and the credited total is monotonic so price dips never revoke a skin. Never gate anything
+  gameplay-affecting behind donations.
 - No real-money mechanics anywhere — chips are valueless play tokens, never purchasable.
   This is an education tool by design (see docs/REQUIREMENTS.md).
