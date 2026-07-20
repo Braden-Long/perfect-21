@@ -10,6 +10,13 @@ export const SITE = {
   repoUrl: '',
 
   /**
+   * Where beta testers send feedback and bug reports: a `mailto:you@example`
+   * or a form URL. Shown in the Support dialog when non-empty, hidden
+   * otherwise.
+   */
+  feedbackUrl: '',
+
+  /**
    * Tip-jar addresses (tip-only monetization: no ads, no wagering, no paywall).
    * Fill in your own addresses; empty entries are hidden from the Support
    * dialog. NEVER put private keys or seed phrases anywhere near this file.

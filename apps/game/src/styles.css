@@ -2534,6 +2534,7 @@ a {
 .board__rules {
   font-size: 0.68rem;
   color: var(--ink-dim);
+  white-space: nowrap;
 }
 
 .board__actions {
@@ -2579,8 +2580,34 @@ a {
 .admin-toolbar {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 0.6rem;
   margin-top: 0.4rem;
+}
+
+.admin-filter {
+  max-width: 260px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+/* Wide admin table scrolls inside its own container instead of the page. */
+.board-scroll {
+  overflow-x: auto;
+}
+
+.board__email {
+  font-weight: 400;
+  font-size: 0.68rem;
+  color: var(--ink-dim);
+}
+
+.stat--up {
+  color: var(--good, #6fcf8f);
+}
+
+.stat--down {
+  color: var(--bad, #e5645f);
 }
 
 /* ---------- join form ---------- */

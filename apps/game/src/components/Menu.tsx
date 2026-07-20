@@ -174,7 +174,9 @@ export function Menu({
             progress lives in this browser — claim a name on the leaderboard to back it up
           </p>
         )}
-        <p className="menu__footer">free forever · no ads · play chips only · tips welcome</p>
+        <p className="menu__footer">
+          free forever · no ads · play chips only · tips welcome · v{__APP_VERSION__}
+        </p>
       </div>
     </div>
   );

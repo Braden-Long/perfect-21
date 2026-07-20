@@ -60,6 +60,16 @@ export function SupportDialog({ onClose }: { onClose: () => void }) {
           )}
         </p>
 
+        {SITE.feedbackUrl && (
+          <p className="rules-note">
+            Found a bug or have an idea?{' '}
+            <a href={SITE.feedbackUrl} target="_blank" rel="noreferrer">
+              Send feedback
+            </a>{' '}
+            — mention that you&rsquo;re on v{__APP_VERSION__}.
+          </p>
+        )}
+
         <div className="overlay__buttons">
           <button className="btn btn--deal" onClick={onClose}>
             Back to the felt

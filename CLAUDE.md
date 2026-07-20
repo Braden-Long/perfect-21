@@ -24,6 +24,9 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   (hard/soft/pair, `-<dealer upcard>`; ace column is `-1`).
 - `apps/game` — React client. Engine is aliased to source (`@perfect21/engine` → engine/src)
   in vite.config.ts, root vitest.config.ts, and tsconfig paths — keep the three in sync.
+  Same deal for the `__APP_VERSION__` define (root package.json version → menu footer /
+  Support dialog): declared in both configs. `SITE.feedbackUrl` in config.ts (empty = hidden)
+  is where beta feedback links go.
   All server calls go through `src/api.ts` and must degrade gracefully offline/static.
 - `apps/server` — Express + `node:sqlite` (built-in; requires vitest ≥3 to resolve).
   Admin panel lives in the client at `#admin`, authed by `ADMIN_TOKEN` bearer header.

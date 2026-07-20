@@ -540,6 +540,8 @@ export function createApp({
         rulesKey: r.rules_key,
         createdAt: r.created_at,
         email: r.email ?? null,
+        // Admin-only: lifetime net units, for spotting anomalous accounts.
+        net: r.net,
       })),
     });
   });
