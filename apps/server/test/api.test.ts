@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Server } from 'node:http';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { MAX_PROXY_HOPS, createApp, parseTrustProxy } from '../src/app';
-import { openDb } from '../src/db';
+import { openDb, sha256Hex } from '../src/db';
 
 let server: Server;
 let base: string;
@@ -331,11 +335,66 @@ describe('accounts & recovery', () => {
     const claim = await mjson('POST', '/api/recover/claim', { token });
     expect(claim.status).toBe(200);
     expect(claim.body.id).toBe(id);
-    expect(claim.body.secret).toBe(secret);
     expect(claim.body.name).toBe('Comeback Kid');
     expect(claim.body.profile.bankroll).toBe(940);
 
+    // The secret rotates on claim: whoever holds the emailed link owns the
+    // account, and stale devices/recovery codes stop working.
+    expect(claim.body.secret).toBeTruthy();
+    expect(claim.body.secret).not.toBe(secret);
+    expect((await mjson('PUT', `/api/players/${id}`, { secret, ...stats() })).status).toBe(403);
+    expect(
+      (await mjson('PUT', `/api/players/${id}`, { secret: claim.body.secret, ...stats() })).status
+    ).toBe(200);
+
     // Single use: the same link never works twice.
     expect((await mjson('POST', '/api/recover/claim', { token })).status).toBe(403);
+  });
+});
+
+describe('secret storage', () => {
+  it('keeps only a hash column in the fresh schema', () => {
+    const db = openDb(':memory:');
+    const cols = (
+      db.prepare(`SELECT name FROM pragma_table_info('players')`).all() as Array<{ name: string }>
+    ).map((c) => c.name);
+    expect(cols).toContain('secret_hash');
+    expect(cols).not.toContain('secret');
+  });
+
+  it('hashes plaintext secrets when migrating an older database', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'p21-')), 'old.db');
+    const old = new DatabaseSync(path);
+    old.exec(`CREATE TABLE players (
+      id TEXT PRIMARY KEY,
+      secret TEXT NOT NULL,
+      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      decisions INTEGER NOT NULL DEFAULT 0,
+      correct INTEGER NOT NULL DEFAULT 0,
+      rolling TEXT NOT NULL DEFAULT '[]',
+      best_streak INTEGER NOT NULL DEFAULT 0,
+      rounds INTEGER NOT NULL DEFAULT 0,
+      net REAL NOT NULL DEFAULT 0,
+      ev_loss REAL NOT NULL DEFAULT 0,
+      rules_key TEXT NOT NULL DEFAULT '',
+      banned INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`);
+    old
+      .prepare('INSERT INTO players (id, secret, name, created_at, updated_at) VALUES (?,?,?,?,?)')
+      .run('p1', 'plaintext-secret', 'Old Timer', 1, 1);
+    old.close();
+
+    const db = openDb(path);
+    const row = db.prepare('SELECT * FROM players WHERE id = ?').get('p1') as Record<
+      string,
+      unknown
+    >;
+    expect(row.secret_hash).toBe(sha256Hex('plaintext-secret'));
+    const cols = (
+      db.prepare(`SELECT name FROM pragma_table_info('players')`).all() as Array<{ name: string }>
+    ).map((c) => c.name);
+    expect(cols).not.toContain('secret');
   });
 });

@@ -1,10 +1,17 @@
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 export interface PlayerRow {
   id: string;
-  secret: string;
+  /**
+   * SHA-256 hex of the player secret. The plaintext secret only exists
+   * client-side (it's high-entropy random, so a plain hash suffices — this is
+   * not a human password). NULL never occurs in practice: fresh rows insert
+   * it and the migration backfills it.
+   */
+  secret_hash: string | null;
   name: string;
   decisions: number;
   correct: number;
@@ -28,13 +35,18 @@ export interface PlayerRow {
   counting_rolling: string;
 }
 
+/** Shared hash for player secrets and one-time login tokens. */
+export function sha256Hex(raw: string): string {
+  return createHash('sha256').update(raw).digest('hex');
+}
+
 export function openDb(path: string): DatabaseSync {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec(`
     CREATE TABLE IF NOT EXISTS players (
       id TEXT PRIMARY KEY,
-      secret TEXT NOT NULL,
+      secret_hash TEXT NOT NULL,
       name TEXT NOT NULL COLLATE NOCASE UNIQUE,
       decisions INTEGER NOT NULL DEFAULT 0,
       correct INTEGER NOT NULL DEFAULT 0,
@@ -68,6 +80,22 @@ export function openDb(path: string): DatabaseSync {
     } catch {
       // column already exists
     }
+  }
+  // Databases from before secrets were hashed have a plaintext `secret`
+  // column: hash every value into `secret_hash`, then drop the plaintext.
+  const cols = new Set(
+    (db.prepare(`SELECT name FROM pragma_table_info('players')`).all() as Array<{ name: string }>).map(
+      (c) => c.name
+    )
+  );
+  if (cols.has('secret')) {
+    if (!cols.has('secret_hash')) db.exec(`ALTER TABLE players ADD COLUMN secret_hash TEXT`);
+    const rows = db
+      .prepare(`SELECT id, secret FROM players WHERE secret_hash IS NULL`)
+      .all() as Array<{ id: string; secret: string }>;
+    const backfill = db.prepare(`UPDATE players SET secret_hash = ? WHERE id = ?`);
+    for (const row of rows) backfill.run(sha256Hex(row.secret), row.id);
+    db.exec(`ALTER TABLE players DROP COLUMN secret`);
   }
   db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS players_email ON players (email) WHERE email IS NOT NULL;

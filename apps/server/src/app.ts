@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -6,6 +6,7 @@ import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { RANK_MIN_DECISIONS, computeRank } from '@perfect21/engine';
+import { sha256Hex } from './db';
 import type { PlayerRow } from './db';
 
 const NAME_RE = /^[A-Za-z0-9 _.\-]{3,20}$/;
@@ -105,9 +106,7 @@ function cleanEmail(raw: unknown): string | null {
   return email.length <= 254 && EMAIL_RE.test(email) ? email : null;
 }
 
-function hashToken(raw: string): string {
-  return createHash('sha256').update(raw).digest('hex');
-}
+const hashToken = sha256Hex;
 
 function cleanName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
@@ -128,6 +127,15 @@ function safeEqual(a: string, b: string): boolean {
   const ba = Buffer.from(a);
   const bb = Buffer.from(b);
   return ba.length === bb.length && timingSafeEqual(ba, bb);
+}
+
+/** Check a client-supplied secret against the stored hash. */
+function secretOk(provided: unknown, row: PlayerRow): boolean {
+  return (
+    typeof provided === 'string' &&
+    typeof row.secret_hash === 'string' &&
+    safeEqual(sha256Hex(provided), row.secret_hash)
+  );
 }
 
 function publicView(row: PlayerRow) {
@@ -229,9 +237,10 @@ export function createApp({
     const id = randomUUID();
     const secret = randomBytes(24).toString('hex');
     const now = Date.now();
+    // Only the hash is stored; the plaintext lives with the client alone.
     db.prepare(
-      'INSERT INTO players (id, secret, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(id, secret, name, now, now);
+      'INSERT INTO players (id, secret_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(id, sha256Hex(secret), name, now, now);
     res.status(201).json({ id, secret, name });
   });
 
@@ -240,8 +249,7 @@ export function createApp({
     const row = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id) as
       | PlayerRow
       | undefined;
-    const secret = req.body?.secret;
-    if (!row || typeof secret !== 'string' || !safeEqual(secret, row.secret)) {
+    if (!row || !secretOk(req.body?.secret, row)) {
       return void res.status(403).json({ error: 'unknown player or bad secret' });
     }
     if (row.banned) return void res.status(403).json({ error: 'account banned' });
@@ -312,7 +320,7 @@ export function createApp({
       return void res.status(400).json({ error: 'invalid recovery code' });
     }
     const row = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as PlayerRow | undefined;
-    if (!row || !safeEqual(secret, row.secret)) {
+    if (!row || !secretOk(secret, row)) {
       return void res.status(403).json({ error: 'unknown player or bad recovery code' });
     }
     if (row.banned) return void res.status(403).json({ error: 'account banned' });
@@ -346,8 +354,7 @@ export function createApp({
     const row = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id) as
       | PlayerRow
       | undefined;
-    const secret = req.body?.secret;
-    if (!row || typeof secret !== 'string' || !safeEqual(secret, row.secret)) {
+    if (!row || !secretOk(req.body?.secret, row)) {
       return void res.status(403).json({ error: 'unknown player or bad secret' });
     }
     if (row.banned) return void res.status(403).json({ error: 'account banned' });
@@ -425,6 +432,12 @@ export function createApp({
     if (!row || row.banned) {
       return void res.status(403).json({ error: 'this recovery link is invalid or expired' });
     }
+    // Rotate the secret on every claim: the server only stores hashes, so a
+    // fresh plaintext must be minted to hand to the claiming device. Side
+    // effect (deliberate): other devices and previously written-down recovery
+    // codes stop working — whoever holds the emailed link owns the account.
+    const secret = randomBytes(24).toString('hex');
+    db.prepare('UPDATE players SET secret_hash = ? WHERE id = ?').run(sha256Hex(secret), row.id);
     let snapshot: unknown = null;
     try {
       snapshot = row.profile ? JSON.parse(row.profile) : null;
@@ -433,7 +446,7 @@ export function createApp({
     }
     res.json({
       id: row.id,
-      secret: row.secret,
+      secret,
       name: row.name,
       email: row.email,
       profile: snapshot,
