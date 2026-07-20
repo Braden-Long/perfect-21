@@ -74,5 +74,11 @@ kept-open option, not the target. Monetization is tip-jar only (`apps/game/src/c
   = seats, insurance is ±0.5 × seats. The felt zoom (Table.tsx transform-origin) follows
   `round.activeHand.seat`; keep giant-ellipse CSS cheap to rasterize (no repeating gradients
   or spread shadows on it — it froze screenshot rasterization once already).
+- Player secrets are stored hashed (sha256, `players.secret_hash`) — plaintext exists only
+  client-side. A magic-link claim ROTATES the secret on purpose (old devices and written-down
+  recovery codes die; whoever holds the emailed link owns the account), and RecoverScreen
+  claims only on an explicit click so mail scanners can't burn the single-use token. When
+  another device syncs ahead, this device's syncs 400 by design (monotonic counters) and the
+  leaderboard screen surfaces the stall (`getSyncIssue` in api.ts) with restore tools.
 - No real-money mechanics anywhere — chips are valueless play tokens, never purchasable.
   This is an education tool by design (see docs/REQUIREMENTS.md).
