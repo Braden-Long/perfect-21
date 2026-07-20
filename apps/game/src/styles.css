@@ -2646,6 +2646,13 @@ a {
   font-size: 0.8rem;
 }
 
+/* Standalone action/back buttons that sit directly in a menu screen (admin
+   unlock, leaderboard back, recover): without this they hug — and at some
+   widths overlap — the element above (e.g. the admin token field). */
+.menu > .btn {
+  margin-top: 1rem;
+}
+
 /* ---------- support / tips ---------- */
 
 .tips {
