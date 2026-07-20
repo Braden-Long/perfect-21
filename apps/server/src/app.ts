@@ -150,7 +150,9 @@ function publicView(row: PlayerRow) {
     accuracy: row.decisions > 0 ? row.correct / row.decisions : 0,
     bestStreak: row.best_streak,
     rounds: row.rounds,
-    updatedAt: row.updated_at,
+    // Day precision only: the exact timestamp is a "when was this person
+    // online" leak on a public endpoint. Admin views override with the real one.
+    updatedAt: Math.floor(row.updated_at / 86_400_000) * 86_400_000,
     countingTier: countingRank.tier
       ? { id: countingRank.tier.id, name: countingRank.tier.name, color: countingRank.tier.color }
       : null,
@@ -290,7 +292,8 @@ export function createApp({
       !isIntIn(b.bestStreak, row.best_streak, 1_000_000) ||
       !isIntIn(b.rounds, row.rounds, row.rounds + 100_000) ||
       !isNumIn(b.net, -b.rounds * 10, b.rounds * 10) ||
-      !isNumIn(b.evLoss, -b.decisions, b.decisions) ||
+      // Cumulative EV given away: monotonic like every other lifetime counter.
+      !isNumIn(b.evLoss, row.ev_loss, b.decisions) ||
       !Array.isArray(rolling) ||
       rolling.length > ROLLING_CAP ||
       !rolling.every((x: unknown) => typeof x === 'boolean') ||
@@ -588,6 +591,7 @@ export function createApp({
       players: rows.map((r) => ({
         id: r.id,
         ...publicView(r),
+        updatedAt: r.updated_at,
         banned: !!r.banned,
         rulesKey: r.rules_key,
         createdAt: r.created_at,

@@ -144,6 +144,10 @@ describe('players API', () => {
     expect(
       (await json('PUT', `/api/players/${id}`, { secret, ...stats({ decisions: 70, rolling: [1, 2] }) })).status
     ).toBe(400);
+    // cumulative EV loss cannot shrink either
+    expect(
+      (await json('PUT', `/api/players/${id}`, { secret, ...stats({ decisions: 70, evLoss: 0.1 }) })).status
+    ).toBe(400);
   });
 
   it('exposes ranked players on the leaderboard', async () => {
