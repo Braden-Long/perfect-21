@@ -263,7 +263,8 @@ subtracted from theory.
 - **Server-side decision verification**: replay submitted hands through the engine for
   anticheat-grade leaderboards.
 - Wonging (sitting out negative shoes) and back-counting drills in counting mode.
-- Multi-seat play and richer table presentation.
+- Richer table presentation (multi-seat play shipped — see multi-spot above).
+- More deck skins as the donation goals grow.
 - **Steam packaging** (optional, shell already works): app ID, steamworks.js achievements,
   Windows build via electron-builder.
 
