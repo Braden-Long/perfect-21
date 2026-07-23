@@ -172,6 +172,53 @@ ADMIN_TOKEN=pick-something-long PORT=8721 npm start
 docker build -t perfect21 . && docker run -p 8721:8721 -e ADMIN_TOKEN=... -v p21data:/data perfect21
 ```
 
+#### Recommended: Railway
+
+The checked-in `railway.json` makes Railway build the root `Dockerfile`, probe
+`/api/health`, and restart a failed process. Railway's Hobby plan is the lowest-friction
+production option for this SQLite architecture: it starts at $5/month including usage.
+Render's free service is not safe for this app because its filesystem is ephemeral; a paid
+Render service plus disk is also a valid, slightly more expensive alternative.
+
+1. Register `playperfect21.com` with
+   [Cloudflare Registrar](https://www.cloudflare.com/products/registrar/) (about $10/year;
+   verify availability and checkout price before buying).
+2. In Railway, create a project from this GitHub repository. It will detect `railway.json`
+   and the root `Dockerfile`.
+3. Add a Railway volume to the service with mount path **`/data`**. The `VOLUME` line in the
+   Dockerfile documents the path but does not provision Railway storage for you. Do not launch
+   the leaderboard without this volume.
+4. Open Railway's Variables tab and paste the core variables from
+   `.env.railway.example`. Railway supplies `PORT`; do not override it.
+
+   ```bash
+   DB_PATH=/data/perfect21.db
+   PUBLIC_URL=https://playperfect21.com
+   TRUST_PROXY=1
+   ADMIN_TOKEN=replace-with-output-of-openssl-rand-base64-48
+   ```
+
+   Generate the token locally with `openssl rand -base64 48`. Never commit the resulting
+   value. Leave the optional SMTP and Solana variables out until their real credentials are
+   ready; placeholder values would make those integrations appear enabled but fail at runtime.
+5. Generate a temporary Railway domain and confirm
+   `https://<railway-domain>/api/health` returns `{"ok":true,...}`.
+6. Add `playperfect21.com` (and optionally `www.playperfect21.com`) under Railway
+   **Networking → Custom Domain**. Add the exact CNAME records Railway displays to Cloudflare
+   DNS. Keep those records **DNS only** (gray cloud), because `TRUST_PROXY=1` is intentionally
+   configured for Railway's single reverse-proxy hop. Set `PUBLIC_URL` to the canonical domain
+   only, with no trailing slash.
+7. Under the Railway volume, schedule a daily backup. Backups are incremental and billed at
+   the same low per-GB rate as volume storage. Keep the service at one replica: its SQLite
+   database and in-memory throttles are deliberately single-instance.
+8. After the custom-domain certificate is active, test `/#admin`, create or sync a leaderboard
+   profile, redeploy once, and confirm the profile survives the redeploy.
+
+The expected baseline cost as of July 2026 is about **$70/year**: roughly $5/month for Railway
+plus roughly $10/year for a `.com`, before unusual traffic or compute overages. A fully free
+static deployment is possible, but account sync, recovery, leaderboard, admin, and
+donation-goal tracking will be offline.
+
 To enable email account recovery, add SMTP credentials (any transactional provider — Resend,
 Postmark, SES, Mailgun — hands you these) and the public origin used in links:
 
@@ -183,6 +230,18 @@ ADMIN_TOKEN=... npm start
 ```
 
 Leave them unset and the email UI hides itself — everything else works.
+
+For the recommended free Resend tier, verify `mail.playperfect21.com` in Resend using the DNS
+records it supplies, create a sending API key, then add these Railway variables:
+
+```bash
+SMTP_URL="smtps://resend:YOUR_RESEND_API_KEY@smtp.resend.com:465"
+MAIL_FROM="Perfect 21 <recovery@mail.playperfect21.com>"
+PUBLIC_URL="https://playperfect21.com"
+```
+
+The free tier currently allows 3,000 transactional emails per month and 100 per day. DNS
+verification records belong in Cloudflare; the Resend API key belongs only in Railway.
 
 To enable the deck-skin donation goals, point the server at your Solana tip wallet and a
 [Helius](https://helius.dev) API key (the free tier is plenty):
@@ -198,6 +257,10 @@ transaction API; SOL valued at the live CoinGecko price), players link the addre
 from, and skins unlock off the cumulative total. Unset → the whole skins-goal UI hides itself
 and only the free classic decks show as available. (Addresses only — the server never needs,
 and must never see, a private key.)
+
+Create the Helius key in its dashboard, then put the key and the **public receiving address**
+in Railway. Helius' free tier currently includes one million credits per month. Never put a
+wallet private key or seed phrase in Railway, `.env.railway.example`, or client config.
 
 - **Admin panel**: visit `https://your-site/#admin` and enter the `ADMIN_TOKEN`. Overview
   stats, player list (including linked wallets and credited donations), ban/unban, delete.
